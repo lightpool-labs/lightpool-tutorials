@@ -33,7 +33,6 @@
 3. lightpool-bridge
 4. event-contract-app backend
 5. lightpool-bot（liquidity-maker）
-6. Reth（运行 lightpool-node/tools/reth/download.sh 下载，二进制在 lightpool-node/tools/reth/bin/reth）
 
 完成后确认各二进制可用。
 ```

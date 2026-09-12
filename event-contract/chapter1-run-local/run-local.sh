@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# No-bridge local stack for event-contract chapter1.
+# No-bridge local stack for event-contract chapter1-run-local.
 # Starts: lightpool + clob-indexer + backend + frontend + liquidity-maker
 # Does NOT start: Reth / lightpool-bridge
 set -euo pipefail
@@ -86,7 +86,7 @@ need_cmd() {
 ensure_bins() {
   if [[ ! -x "$LIGHTPOOL_BIN" ]]; then
     echo "lightpool binary not found: $LIGHTPOOL_BIN" >&2
-    echo "Run chapter1 step 3 first (build lightpool-node)." >&2
+    echo "Run chapter1-run-local step 3 first (build lightpool-node)." >&2
     exit 1
   fi
   if [[ ! -x "$INDEXER_BIN" ]]; then
