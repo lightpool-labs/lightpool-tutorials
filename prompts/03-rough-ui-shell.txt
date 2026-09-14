@@ -1,0 +1,103 @@
+Build the rough UI shell for all trade panels in `tokenized-stocks-app` (placeholders only).
+
+## Context (read first)
+
+If this chat has access to `lightpool-tutorials`, read in order:
+
+1. `AGENTS.md`
+2. `common/glossary.md`
+3. `common/architecture.md` (tokenized stocks section)
+4. `tokenized-stocks/tokenized-stocks-video-by-chapter.md` (Rough layout section — **source of truth for geometry**)
+5. `skills/spot-lightpool/SKILL.md` (for naming only; do not call APIs yet)
+
+Prerequisite: `tokenized-stocks-app` already exists from prompt `02-scaffold-tokenized-stocks-app.txt` (Next.js frontend + thin Axum backend with `/api/health` and `/api/ready`).
+
+This is a **spot exchange** shell (e.g. AAPL/USDT), not event-contract / YES-NO.
+
+## Goal
+
+Replace the scaffold home page with a **full trade-page shell** matching the layout in `tokenized-stocks-video-by-chapter.md`. Every panel visible as a labeled placeholder. **No real market data, no signing, no clob-index calls from the UI panels.**
+
+Work in sibling repo:
+
+```text
+lightpool-labs/tokenized-stocks-app/frontend/
+```
+
+Backend stays as-is unless a tiny change is required for routing; do **not** add new API routes in this step.
+
+## Required layout (must match)
+
+```text
+┌────────────────────────────────────────────────────────────┬──────────────────┐
+│ Top bar: logo | Trade | Admin | wallet / connect           │                  │
+├──────────┬──────────────────────┬──────────────────────────┤  Order ticket    │
+│ Markets  │  Chart (bars)        │  Order book              │  buy / sell      │
+│ list     │                      │  + recent trades         │                  │
+│          │                      │                          │  Deposit /       │
+│          │                      │                          │  Withdraw        │
+├──────────┴──────────────────────┴──────────────────────────┤                  │
+│ Bottom tabs: Balances | Open orders | History | Fills      │                  │
+└────────────────────────────────────────────────────────────┴──────────────────┘
+```
+
+Hard geometry rules:
+
+1. Left-to-right: **Markets | Chart (bars) | Order book (+ recent trades) | Order ticket**.
+2. **Order ticket** is a **full-height right column** (buy/sell on top, Deposit / Withdraw under it).
+3. **Bottom tabs** span only to the **right edge of the order book**; they must **not** sit under the order ticket.
+4. Top bar spans the area above Markets + Chart + Order book (not necessarily over the order ticket column). Links: logo, Trade, Admin, wallet / connect placeholder.
+
+## Frontend requirements
+
+Stack: keep Next.js App Router + TypeScript. Prefer simple CSS (CSS modules or `globals.css`); no need for a heavy UI kit.
+
+### Trade page (`/` or `/trade`)
+
+Placeholder panels (static fake labels OK, e.g. market name `AAPL/USDT`):
+
+| Panel | Placeholder content |
+|-------|---------------------|
+| Markets list | Fake rows (e.g. AAPL/USDT, TSLA/USDT); clicking may set local selected label only |
+| Chart (bars) | Box titled Chart / bars; empty or “Chart placeholder” |
+| Order book | Asks / bids empty tables + “Recent trades” empty list |
+| Order ticket | Buy / Sell toggle or tabs; size/price inputs disabled or non-functional; Submit button does nothing useful |
+| Deposit / Withdraw | Under order ticket: two buttons or mini form, non-functional |
+| Bottom tabs | Tab headers: Balances, Open orders, History, Fills; empty table body per tab |
+
+User must be able to **click around** the shell (switch bottom tabs, select a fake market name, switch Buy/Sell) without backend errors.
+
+### Admin page (`/admin`)
+
+Separate empty page reachable from top bar **Admin**:
+
+- Title Admin
+- Placeholder sections: Create token, Create spot market, Mint / fund
+- No real CLI or API calls
+
+### Optional
+
+- A stub `/liquidity` or note in Admin that liquidity maker is later — not required as a full page.
+- Keep a small backend health indicator somewhere discreet (e.g. top bar) using existing `/api/health` — optional.
+
+## Do not do in this step
+
+- No TradingView / chart library integration with real bars
+- No WebSocket or clob-index book/order APIs
+- No lightpool-sdk, place/cancel, bridge, MetaMask
+- Do not implement Admin create-token / create-market for real
+- Do not start `lightpool-node` / indexer / bots
+- Do not add unit tests unless asked
+- Do not redesign into a different layout than the ASCII diagram
+
+## Verify
+
+1. `npm run dev` in `frontend/` works; open `http://127.0.0.1:3000`.
+2. Trade page shows all panels in the correct geometry (order ticket full-height right; bottom tabs stop at order book).
+3. `/admin` opens from the top bar with empty placeholders.
+4. Clicking tabs / Buy-Sell / fake market does not crash.
+5. Backend still serves `/api/health` if you run it; panel placeholders must not depend on clob-index being up.
+
+## Stop when
+
+The shell is clickable and matches the diagram. Stop before wiring real data (that is later chapters / prompts).

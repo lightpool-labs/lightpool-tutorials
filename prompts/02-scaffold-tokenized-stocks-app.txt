@@ -1,0 +1,100 @@
+Scaffold the LightPool sample app `tokenized-stocks-app` (frontend + thin backend only).
+
+## Context (read first)
+
+If this chat has access to `lightpool-tutorials`, read in order:
+
+1. `AGENTS.md`
+2. `common/glossary.md`
+3. `common/architecture.md` (tokenized stocks section)
+4. `skills/spot-lightpool/SKILL.md`
+
+This is a **spot exchange** app (e.g. AAPL/USDT), not an event-contract / YES-NO app.
+Do not copy event-contract product logic (Polymarket slugs, YES/NO tokens, vaults).
+
+## Goal
+
+Create a new sibling repo under the user's `lightpool-labs` workspace (same parent as `lightpool-tutorials` if present):
+
+```text
+lightpool-labs/tokenized-stocks-app/
+├── README.md
+├── backend/          # Rust Axum, thin API
+└── frontend/         # Next.js (App Router)
+```
+
+This prompt is **scaffold only**. Do **not** build the Hyperliquid-style trade layout yet (that is prompt `03-rough-ui-shell.txt`). Do **not** implement markets list, chart, order book, order ticket, deposit, admin, or liquidity bot.
+
+## Architecture
+
+```text
+Browser :3000  →  backend :3001  →  clob-index :3002  →  lightpool node
+```
+
+- Backend is a **client of clob-index**, not of node RPC `:26300`.
+- Frontend talks only to the backend (`NEXT_PUBLIC_API_URL=http://127.0.0.1:3001/api`).
+- Types: `Address` = user (20-byte); `ContractAddress` = token/spot market (8-byte, often `0x02…` / `0x03…`). Do not mix them.
+
+## Backend requirements
+
+Stack: Rust 2021, Axum, tokio, tower-http (CORS + trace), serde, dotenvy, reqwest, tracing.
+
+Binary name: `tokenized-stocks-backend`.
+
+Env (`.env.example` + `.env`):
+
+```text
+HOST=0.0.0.0
+PORT=3001
+CLOB_INDEX_URL=http://127.0.0.1:3002
+```
+
+Routes (all under `/api`):
+
+| Method | Path | Behavior |
+|--------|------|----------|
+| GET | `/api/health` | `{ "status": "ok" }` |
+| GET | `/api/ready` | GET `{CLOB_INDEX_URL}/api/health/health`; if ok return `{ "status": "ready", "clob_index": true }`, else `{ "status": "degraded", "clob_index": false }` (still HTTP 200) |
+
+CORS: allow localhost frontend origin.
+
+Do **not** add lightpool-sdk, place-order, DB, JWT, or bridge in this scaffold.
+Do **not** invent other clob-index routes here.
+
+Optional: if sibling `lightpool-sdk-rust` exists, you may note in README that later chapters will depend on it via path `../lightpool-sdk-rust` — but do not wire it yet.
+
+## Frontend requirements
+
+Stack: Next.js (App Router) + TypeScript.
+
+- One simple home page: title `Tokenized Stocks`, one line that this is a LightPool spot-exchange sample, and show backend health by fetching `/api/health` (via `NEXT_PUBLIC_API_URL`).
+- `.env.example` / `.env.local`:
+
+```text
+NEXT_PUBLIC_API_URL=http://127.0.0.1:3001/api
+```
+
+- No trade UI panels, no wallet connect, no chart library yet.
+
+## README
+
+Short English README with:
+
+1. Directory layout
+2. How to run backend (`cargo run` on `:3001`)
+3. How to run frontend (`npm install && npm run dev` on `:3000`)
+4. Note that venue (node + clob-index) must already be running for `/api/ready` to be ready
+5. Ports table: UI 3000, backend 3001, clob-index 3002
+
+## Verify
+
+1. `cargo check` (or `cargo run`) in `backend/` succeeds.
+2. `npm install` and `npm run dev` in `frontend/` succeeds.
+3. `curl -s http://127.0.0.1:3001/api/health` → `{"status":"ok"}` (with backend up).
+4. Open `http://127.0.0.1:3000` and see the home page (health fetch may show degraded if clob-index is down — that is OK).
+
+## Stop conditions
+
+- Do not start or modify `lightpool-node`, `lightpool-clob-indexer`, or `event-contract-app`.
+- Do not add unit tests unless asked.
+- Do not implement the rough multi-panel trade shell in this step.

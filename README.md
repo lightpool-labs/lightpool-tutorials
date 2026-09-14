@@ -7,7 +7,7 @@ Step-by-step tutorials for building apps on LightPool.
 ## Planned tutorials
 
 - Event contract app — start at [`event-contract/chapter1-run-local/README.md`](event-contract/chapter1-run-local/README.md)
-- Tokenized stocks — start at [`tokenized-stocks/chapter1-run-local/README.md`](tokenized-stocks/chapter1-run-local/README.md)
+- Tokenized stocks — step list [`tokenized-stocks/tokenized-stocks-video-by-chapter.md`](tokenized-stocks/tokenized-stocks-video-by-chapter.md); start at [`tokenized-stocks/chapter1-run-local/README.md`](tokenized-stocks/chapter1-run-local/README.md)
 
 ## Agent pack (this repo)
 
