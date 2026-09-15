@@ -1,0 +1,146 @@
+Wire Admin (+ markets list) for `tokenized-stocks-app`: create cash USDT, create stock markets (token + spot), list real pairs in the UI.
+
+## Context (read first)
+
+If this chat has access to `lightpool-tutorials`, read in order:
+
+1. `AGENTS.md`
+2. `common/glossary.md`
+3. `common/architecture.md` (tokenized stocks section)
+4. `tokenized-stocks/tokenized-stocks-video-by-chapter.md` (step 4)
+5. `tokenized-stocks/chapter4-admin/README.md` (venue + test accounts)
+6. `skills/spot-lightpool/SKILL.md`, `http.md`, `tx-submit.md`
+
+Prerequisites:
+
+- Venue running: `lightpool-tutorials/scripts/run-venue.sh start` (node `:26300`, clob-index `:3002`)
+- App from prompts `tokenized-stocks-app-02-scaffold.txt` and `tokenized-stocks-app-03-rough-ui-shell.txt`
+
+This is **spot only** (e.g. AAPL/USDT). Not event-contract / YES-NO.
+
+## Goal
+
+In sibling repo `lightpool-labs/tokenized-stocks-app/`:
+
+1. **Admin page** can create the cash token and stock markets on chain.
+2. **Markets list** on the trade page loads real pairs and selects a spot `ContractAddress`.
+3. All create txs are signed by the **same key as the LightPool validator** (Anvil #0).
+
+## Validator / admin signer (required)
+
+`run-venue.sh` imports Anvil account #0 as the node wallet. Admin must use **that same key** to sign `create_token` / `create_market` (and optional mint/transfer).
+
+| Role | Address | Private key |
+|------|---------|-------------|
+| Validator / admin | `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` | `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80` |
+
+- Load this key into the backend (env), **not** into the browser.
+- Backend builds actions with `lightpool-sdk` (`ActionBuilder` + `TransactionBuilder::build_and_sign_only`) and submits via clob-index:
+
+```text
+POST http://127.0.0.1:3002/api/tx/submit
+{ "tx": <SignedTransaction> }
+```
+
+- Do **not** invent tx JSON by hand. Prefer shapes in `skills/spot-lightpool/tx-submit.md`.
+- Path-depend on sibling `lightpool-sdk-rust` if present (`../lightpool-sdk-rust`).
+- Env example:
+
+```text
+ADMIN_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+CLOB_INDEX_URL=http://127.0.0.1:3002
+```
+
+Confirm admin address equals `0xf39F…2266` at startup (log it).
+
+## Token and market rules
+
+### 1) Cash token = USDT (must be first)
+
+- Before any stock market, ensure a **USDT** cash token exists.
+- If none is recorded yet on a fresh venue, create it first with `ActionBuilder::create_token`:
+  - name `USDT`, symbol `USDT`, mintable `true`
+  - `to` = admin/validator address (supply goes to admin)
+- Persist `CASH_TOKEN_ADDRESS` / USDT `ContractAddress` (often `0x02…` on a fresh chain). Do not hard-code if the receipt printed a different address — parse from receipt events (SDK helpers like `extract_token_address_from_events` if available).
+
+### 2) Create a stock market (e.g. AAPL)
+
+One Admin action “create AAPL market” (or form: symbol `AAPL`, name `Apple`) must do **both**:
+
+1. `create_token` for the stock (e.g. name Apple, symbol AAPL, mintable, `to` = admin)
+2. `create_market` / spot market for **`AAPL/USDT`**:
+   - `base_token` = AAPL
+   - `quote_token` = USDT (cash from step 1)
+   - sensible defaults: e.g. tick/min size similar to node docs (`tick_size` / `min_order_size` in on-chain scale via `TOKEN_SCALE` as in SDK examples)
+   - `creator` = admin address
+
+Parse and store:
+
+- base `ContractAddress`
+- quote `ContractAddress` (USDT)
+- spot market `ContractAddress` (typically `0x03…`)
+- display name `AAPL/USDT`
+
+If USDT is missing, create USDT first, then AAPL + market — do not create AAPL/USDT with a missing quote.
+
+### 3) Optional funding (nice to have)
+
+From admin key: mint/transfer some USDT (and optionally AAPL) to demo trader Anvil #1  
+`0x70997970C51812dc3A010C7d01b50e0d17dc79C8` — only if easy; not required to finish this chapter.
+
+## Backend API (suggested)
+
+Keep thin Axum backend as clob-index client + admin signer. Example routes (names can vary, behavior must match):
+
+| Method | Path | Behavior |
+|--------|------|----------|
+| GET | `/api/cash` | Current USDT `ContractAddress` or null |
+| POST | `/api/admin/ensure-cash` | Create USDT if missing; return address |
+| POST | `/api/admin/markets` | Body: `{ "symbol": "AAPL", "name": "Apple", ... }` → ensure USDT, create stock token, create `SYMBOL/USDT` spot market; return stored market |
+| GET | `/api/markets` | List markets the app has created/registered (symbol, name, base, quote, spot_market) |
+| GET | `/api/markets/:id` or by symbol | One market |
+
+Persist markets in memory or a simple local file/sqlite under the app (clob-index `GET /api/markets` is event-oriented — **do not rely on it** for spot pair list). After create, append to the app registry.
+
+Submit path: always sign with admin key → `POST {CLOB_INDEX_URL}/api/tx/submit`.
+
+## Frontend
+
+### Admin (`/admin`)
+
+Replace placeholders with working forms:
+
+1. **Cash / USDT** — show current cash token address; button “Ensure USDT” / create cash if missing.
+2. **Create stock market** — inputs for symbol (default `AAPL`) and name (default `Apple`); submit creates **token + `SYMBOL/USDT` market** in one flow; show resulting addresses.
+3. Show last errors from submit/receipt clearly.
+
+### Markets list (trade page)
+
+- Load `GET /api/markets` (app backend).
+- Display real pairs (e.g. `AAPL/USDT`).
+- On select, store selected spot `ContractAddress` (and base/quote) in app state for later chapters (chart / book / ticket).
+- If empty, show empty state pointing user to Admin.
+
+Do **not** implement chart bars, live order book, place-order ticket, deposit/withdraw bridge, or liquidity bot in this step.
+
+## Types
+
+- `Address` = user/admin (20-byte), e.g. validator `0xf39F…`
+- `ContractAddress` = token / spot market (8-byte module prefix, `0x02…` / `0x03…`)
+- Never mix them.
+
+## Verify
+
+1. `./scripts/run-venue.sh start` and clob-index health OK.
+2. Backend runs with `ADMIN_PRIVATE_KEY` = Anvil #0; admin address matches validator.
+3. Admin: create/ensure USDT first — receipt success; cash address shown.
+4. Admin: create AAPL market — creates AAPL token **and** `AAPL/USDT` spot; both addresses shown.
+5. Trade page markets list shows `AAPL/USDT`; selecting it sets the spot market id in UI state.
+6. Fresh venue after `stop` + `clean` + `start`: flow still works (create USDT again, then AAPL).
+
+## Stop conditions
+
+- Do not change LightPool node internals or `refs/`.
+- Do not add unit tests unless asked.
+- Do not wire order placement, chart data, or MM bot yet.
+- Do not put the admin private key in frontend env or commit real secrets beyond the documented Anvil demo key in `.env.example`.

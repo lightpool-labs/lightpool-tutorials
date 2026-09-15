@@ -68,10 +68,11 @@ Off the main trade page (still in the app):
 | Step | Chapter folder |
 |------|----------------|
 | 1 | `chapter1-run-local/` |
-| 2–3 | `chapter2-rough-ui-shell/` |
-| 4 | `chapter3-admin/` |
-| 5 | `chapter4-chart-bars/` |
-| 6 | `chapter5-liquidity-making/` |
-| 7 | `chapter6-deposit-withdraw/` |
-| 8 | `chapter7-order-ticket/` |
-| 9 | `chapter8-user-tabs/` |
+| 2 | `chapter2-scaffold-app/` |
+| 3 | `chapter3-rough-ui-shell/` |
+| 4 | `chapter4-admin/` |
+| 5 | `chapter5-chart-bars/` |
+| 6 | `chapter6-liquidity-making/` |
+| 7 | `chapter7-deposit-withdraw/` |
+| 8 | `chapter8-order-ticket/` |
+| 9 | `chapter9-user-tabs/` |

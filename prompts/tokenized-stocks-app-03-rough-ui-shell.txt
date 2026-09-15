@@ -10,7 +10,7 @@ If this chat has access to `lightpool-tutorials`, read in order:
 4. `tokenized-stocks/tokenized-stocks-video-by-chapter.md` (Rough layout section — **source of truth for geometry**)
 5. `skills/spot-lightpool/SKILL.md` (for naming only; do not call APIs yet)
 
-Prerequisite: `tokenized-stocks-app` already exists from prompt `02-scaffold-tokenized-stocks-app.txt` (Next.js frontend + thin Axum backend with `/api/health` and `/api/ready`).
+Prerequisite: `tokenized-stocks-app` already exists from prompt `tokenized-stocks-app-02-scaffold.txt` (Next.js frontend + thin Axum backend with `/api/health` and `/api/ready`).
 
 This is a **spot exchange** shell (e.g. AAPL/USDT), not event-contract / YES-NO.
 

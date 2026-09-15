@@ -43,6 +43,16 @@ Amounts/prices in responses are usually **decimal strings** (human-readable scal
 
 `status` is `"ready"` or `"degraded"`.
 
+### `GET /api/health/client_version`
+
+**Input:** none  
+
+**Output:**
+
+```json
+{ "client_version": "lightpool-clob-indexer/<semver>" }
+```
+
 ---
 
 ## Markets

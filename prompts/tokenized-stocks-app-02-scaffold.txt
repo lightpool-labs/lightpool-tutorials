@@ -23,7 +23,7 @@ lightpool-labs/tokenized-stocks-app/
 └── frontend/         # Next.js (App Router)
 ```
 
-This prompt is **scaffold only**. Do **not** build the Hyperliquid-style trade layout yet (that is prompt `03-rough-ui-shell.txt`). Do **not** implement markets list, chart, order book, order ticket, deposit, admin, or liquidity bot.
+This prompt is **scaffold only**. Do **not** build the Hyperliquid-style trade layout yet (that is prompt `tokenized-stocks-app-03-rough-ui-shell.txt`). Do **not** implement markets list, chart, order book, order ticket, deposit, admin, or liquidity bot.
 
 ## Architecture
 

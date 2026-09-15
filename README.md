@@ -7,13 +7,18 @@ Step-by-step tutorials for building apps on LightPool.
 ## Planned tutorials
 
 - Event contract app — start at [`event-contract/chapter1-run-local/README.md`](event-contract/chapter1-run-local/README.md)
-- Tokenized stocks — step list [`tokenized-stocks/tokenized-stocks-video-by-chapter.md`](tokenized-stocks/tokenized-stocks-video-by-chapter.md); start at [`tokenized-stocks/chapter1-run-local/README.md`](tokenized-stocks/chapter1-run-local/README.md)
+- Tokenized stocks — step list [`tokenized-stocks/tokenized-stocks-video-by-chapter.md`](tokenized-stocks/tokenized-stocks-video-by-chapter.md)
+  - [`chapter1-run-local`](tokenized-stocks/chapter1-run-local/README.md)
+  - [`chapter2-scaffold-app`](tokenized-stocks/chapter2-scaffold-app/README.md)
+  - [`chapter3-rough-ui-shell`](tokenized-stocks/chapter3-rough-ui-shell/README.md)
+  - [`chapter4-admin`](tokenized-stocks/chapter4-admin/README.md)
 
 ## Agent pack (this repo)
 
 | Path | Purpose |
 |------|---------|
 | [`AGENTS.md`](AGENTS.md) | Read order, hard rules, chapter 1 verify |
+| [`scripts/run-venue.sh`](scripts/run-venue.sh) | Start local node + clob-indexer |
 | [`common/glossary.md`](common/glossary.md) | Types, ports, demo keys, repos |
 | [`common/architecture.md`](common/architecture.md) | Event-contract vs spot vs bridge |
 | [`skills/spot-lightpool/`](skills/spot-lightpool/) | Frozen clob-index HTTP / WS / tx-submit contract |
