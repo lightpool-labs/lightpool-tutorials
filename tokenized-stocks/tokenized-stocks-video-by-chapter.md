@@ -41,17 +41,17 @@ Off the main trade page (still in the app):
 
 ## Beginner step list
 
-| Step | Name | What you do |
-|------|------|-------------|
-| 1 | Run local venue | Start LightPool node + clob-index. App will only talk to clob-index (`:3002`). |
-| 2 | Scaffold app | Create `tokenized-stocks-app` (frontend + thin backend). |
-| 3 | Rough UI for **all** parts | Build the full trade layout above with **placeholders only** (labels, empty tables, fake market name). No real API yet. Deposit / Withdraw is a placeholder under the order ticket; Admin is a separate empty page. User can click around the shell. |
-| 4 | Admin (+ markets list) | Create USDT + stock token, create spot market, fund accounts; wire markets list to load pairs and select spot `ContractAddress`. |
-| 5 | Chart (bars) | OHLC into TradingView (or simple candles) for selected market. |
-| 6 | Liquidity making (+ order book) | Run a maker bot so the book has size; wire order book UI (bids/asks + live updates; optional recent trades). |
-| 7 | Deposit / withdraw | Move funds in/out so the user can pay for orders (local mint first; bridge later). |
-| 8 | Order ticket | Buy/sell form → sign with lightpool-sdk → `POST /api/tx/submit`; cancel from open orders. |
-| 9 | User bottom tabs | Balances; open orders; order history / fills. |
+| Step | Name | What you do | 做什么 |
+|------|------|-------------|--------|
+| 1 | Run local venue | Start LightPool node + clob-index. App will only talk to clob-index (`:3002`). | 启动 LightPool 节点 + clob-index。应用只对接 clob-index（`:3002`）。 |
+| 2 | Scaffold app | Create `tokenized-stocks-app` (frontend + thin backend). | 创建 `tokenized-stocks-app`（前端 + 薄后端）。 |
+| 3 | Rough UI for **all** parts | Build the full trade layout above with **placeholders only** (labels, empty tables, fake market name). No real API yet. Deposit / Withdraw is a placeholder under the order ticket; Admin is a separate empty page. User can click around the shell. | 按上方完整交易页布局搭好**占位壳**（标签、空表、假市场名）。先不接真实 API。Deposit / Withdraw 在下单区下方占位；Admin 为独立空页。用户可点击浏览整页壳。 |
+| 4 | Admin (+ markets list) | Create USDT + stock token, create spot market, fund accounts; wire markets list to load pairs and select spot `ContractAddress`. | 创建 USDT + 股票代币、创建现货市场、给账户打款；打通市场列表，加载交易对并选中现货 `ContractAddress`。 |
+| 5 | Chart (bars) | OHLC into TradingView (or simple candles) for selected market. | 为当前选中市场接入 OHLC（TradingView 或简单 K 线）。 |
+| 6 | Liquidity making (+ order book) | Run a maker bot so the book has size; wire order book UI (bids/asks + live updates; optional recent trades). | 跑做市 bot 让盘口有量；接通订单簿 UI（买卖盘 + 实时更新；可选近期成交）。 |
+| 7 | Deposit / withdraw | Move funds in/out so the user can pay for orders (local mint first; bridge later). | 资金出入，以便用户能下单支付（先本地 mint；桥接稍后）。 |
+| 8 | Order ticket | Buy/sell form → sign with lightpool-sdk → `POST /api/tx/submit`; cancel from open orders. | 买卖表单 → lightpool-sdk 签名 → `POST /api/tx/submit`；从挂单撤单。 |
+| 9 | User bottom tabs | Balances; open orders; order history / fills. | 余额；当前挂单；历史订单 / 成交。 |
 
 ---
 

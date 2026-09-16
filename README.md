@@ -12,6 +12,7 @@ Step-by-step tutorials for building apps on LightPool.
   - [`chapter2-scaffold-app`](tokenized-stocks/chapter2-scaffold-app/README.md)
   - [`chapter3-rough-ui-shell`](tokenized-stocks/chapter3-rough-ui-shell/README.md)
   - [`chapter4-admin`](tokenized-stocks/chapter4-admin/README.md)
+  - [`chapter5-chart-bars`](tokenized-stocks/chapter5-chart-bars/README.md)
 
 ## Agent pack (this repo)
 

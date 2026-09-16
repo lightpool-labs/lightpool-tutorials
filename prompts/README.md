@@ -11,3 +11,4 @@ Step numbers match `tokenized-stocks/tokenized-stocks-video-by-chapter.md` (step
 | [`tokenized-stocks-app-02-scaffold.txt`](tokenized-stocks-app-02-scaffold.txt) | 2 Scaffold app | Create `tokenized-stocks-app` (frontend + thin backend) |
 | [`tokenized-stocks-app-03-rough-ui-shell.txt`](tokenized-stocks-app-03-rough-ui-shell.txt) | 3 Rough UI | Full trade layout placeholders (Hyperliquid-style shell) |
 | [`tokenized-stocks-app-04-admin.txt`](tokenized-stocks-app-04-admin.txt) | 4 Admin (+ markets) | USDT cash + stock token/market; markets list |
+| [`tokenized-stocks-app-05-chart-bars.txt`](tokenized-stocks-app-05-chart-bars.txt) | 5 Chart (bars) | HL history + subscribe; Lightweight Charts |

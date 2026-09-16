@@ -1,0 +1,139 @@
+Wire Chart (bars) for `tokenized-stocks-app`: history from Hyperliquid, then live candle subscribe; display with TradingView Lightweight Charts.
+
+## Context (read first)
+
+If this chat has access to `lightpool-tutorials`, read in order:
+
+1. `AGENTS.md`
+2. `common/glossary.md`
+3. `common/architecture.md` (tokenized stocks section)
+4. `tokenized-stocks/tokenized-stocks-video-by-chapter.md` (step 5)
+5. `tokenized-stocks/chapter4-admin/README.md` (venue; markets already created)
+6. Prompt `tokenized-stocks-app-04-admin.txt` (registry / markets list)
+
+Prerequisites:
+
+- Venue: `./scripts/run-venue.sh start`
+- App through chapter 4: trade shell + Admin can create USDT and stock markets (e.g. `AAPL/USDT`); markets list selects a real pair
+
+Product: **US equities** tokenized spot on LightPool (e.g. `AAPL/USDT`). Do **not** use crypto tickers or crypto examples in code, UI copy, comments, or docs for this chapter.
+
+## Goal
+
+In `lightpool-labs/tokenized-stocks-app/`:
+
+1. Replace the Chart placeholder with **TradingView Lightweight Charts**.
+2. For the **selected** LightPool spot market, load **history first**, then **subscribe** for new / updating bars.
+3. Bar data comes from **Hyperliquid** equity perps on the **`xyz` dex**. LightPool base symbol `AAPL` maps to Hyperliquid coin **`xyz:AAPL`** by a **fixed rule** (`xyz:` + symbol). **No** per-market mapping field. UI trade page reference: https://app.hyperliquid.xyz/trade/xyz:AAPL
+
+LightPool is the trading venue; Hyperliquid is **chart reference only** this chapter. Do **not** use LightPool clob-index `/api/spot/.../bars` yet.
+
+## Symbol rule
+
+- LightPool spot base symbol `S` (e.g. `AAPL`) → Hyperliquid candle `coin` = `xyz:S` (e.g. `xyz:AAPL`).
+- This matches Hyperliquid HIP-3 / `xyz` equity perps (UI path `/trade/xyz:AAPL`). Validated: `coin: "AAPL"` returns `null`; `coin: "xyz:AAPL"` returns candles.
+- Read `S` from the app market registry / selected market (chapter 4). Do **not** store a separate `hl_coin` on each market — only apply the global `xyz:` prefix.
+- If no market is selected or symbol is missing → empty chart, clear empty state. Do not fall back to another ticker.
+
+## Data flow (required order)
+
+```text
+Select market (e.g. AAPL/USDT)
+    → coin = "xyz:" + baseSymbol   // AAPL → xyz:AAPL
+    → 1) History: backend GET proxy → Hyperliquid candleSnapshot(coin)
+    → frontend setData(history)
+    → 2) Live: backend subscribe Hyperliquid candle WS for that coin
+    → frontend update / append bars
+```
+
+On market switch: unsubscribe previous coin → clear series → history for new coin → subscribe new coin.
+
+### 1) History — REST proxy
+
+Frontend calls **your** backend only, for example:
+
+```http
+GET /api/markets/:symbol/bars?interval=1m
+```
+
+Optional query: `from`, `to`, or `limit` (define one clear convention).
+
+Backend:
+
+1. Resolve `:symbol` to the equity base (e.g. `AAPL`), then set Hyperliquid `coin = "xyz:AAPL"`.
+2. `POST https://api.hyperliquid.xyz/info` with:
+
+```json
+{
+  "type": "candleSnapshot",
+  "req": {
+    "coin": "xyz:AAPL",
+    "interval": "1m",
+    "startTime": "<ms>",
+    "endTime": "<ms>"
+  }
+}
+```
+
+(See [Hyperliquid info candleSnapshot](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint); HIP-3 coins use the dex prefix.)
+
+3. Map HL candles (`t,o,h,l,c,v` — `t` is ms; response `s` is `"xyz:AAPL"`) to a stable JSON for the UI, e.g.:
+
+```json
+{
+  "symbol": "AAPL",
+  "hl_coin": "xyz:AAPL",
+  "interval": "1m",
+  "bars": [
+    { "time": 1710000000, "open": "...", "high": "...", "low": "...", "close": "...", "volume": "..." }
+  ]
+}
+```
+
+(`hl_coin` in the **response** is fine for debugging; do not persist a per-market config field.)
+
+Use **seconds** for Lightweight Charts `time` (HL `t` / 1000).
+
+Supported intervals for this chapter: at least `1m`, `5m`, `15m`, `1h` (subset of HL intervals is fine).
+
+Do **not** call Hyperliquid from the browser (CORS / coupling). Env for HL base URL is OK, e.g. `HYPERLIQUID_INFO_URL=https://api.hyperliquid.xyz/info`.
+
+### 2) Live — WebSocket subscribe
+
+After history is on the chart:
+
+1. Backend opens (or reuses) a connection to Hyperliquid WebSocket.
+2. Subscribe to **candle** for Hyperliquid coin `xyz:<SYMBOL>` + interval (same rule as history).
+3. Expose live bars to the frontend via **your** backend WebSocket (or SSE). Example client message: subscribe `{ "op": "subscribe", "channel": "bars", "symbol": "AAPL", "interval": "1m" }` (backend maps to `xyz:AAPL`).
+4. Forward HL candle updates as the same bar shape as history; frontend `series.update(...)` for the forming bar and append when a bar closes.
+
+Unsubscribe when the user leaves the page or changes market/interval.
+
+## Frontend (Chart panel)
+
+- Library: **lightweight-charts** (TradingView Lightweight Charts). Do not require the licensed Advanced Charting Library.
+- On select market / change interval: fetch history → `setData` → open live subscription.
+- Interval control (simple buttons or select) is enough.
+- Show a small label that bars are Hyperliquid reference for the equity symbol (US equity product; no crypto wording).
+
+## Out of scope
+
+- Order book, recent trades tape, order ticket, deposit/withdraw, liquidity bot
+- LightPool clob-index bar APIs
+- Placing orders
+- Per-market alternate coin fields
+
+## Verify
+
+1. Admin has created e.g. `AAPL/USDT` (chapter 4).
+2. Select `AAPL/USDT` on the trade page → chart fills with **history** from `xyz:AAPL`, then continues with **live** updates.
+3. Create/select another US equity market (e.g. `TSLA/USDT`) → chart uses `xyz:TSLA` (history then live).
+4. No market selected → empty chart, no crash.
+5. Network: browser talks only to your backend for bars; backend talks to Hyperliquid.
+6. Sanity check: `coin: "AAPL"` must not be used for HL requests (returns null); always `xyz:AAPL`.
+
+## Stop conditions
+
+- Do not add unit tests unless asked.
+- Do not modify LightPool node internals or `refs/`.
+- Do not document or demo with non-equity crypto symbols.
