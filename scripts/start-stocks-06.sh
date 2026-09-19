@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
-# Restart the tokenized-stocks stack, then create markets and fund the maker.
-# With `stop`: stop backend, frontend, node, and indexer, then exit.
-# 1. Stop backend + frontend
-# 2. Stop lightpool node + clob-indexer
-# 3. With `clean`: delete venue data before the node and indexer start again
-# 4. Start lightpool node + clob-indexer
-# 5. Start backend + frontend
-# 6. Create USDT and AAPL / TSLA / INTC markets
-# 7. Fund the maker wallet
+# Chapter 6: start LightPool node, indexer, app, markets, and maker funds.
+# stop only stops processes. clean only deletes data (run stop first).
+# 1. Start lightpool node + clob-indexer (./scripts/run-venue.sh)
+# 2. Start backend + frontend
+# 3. Create USDT and AAPL / TSLA / INTC markets
+# 4. Fund the maker wallet (./scripts/fund-maker.sh)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,20 +35,13 @@ FUND="$SCRIPT_DIR/fund-maker.sh"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [clean|stop]
+Usage: $(basename "$0") [start|stop|clean]
 
-Restart tokenized stocks locally:
+Chapter 6 local stocks stack.
 
-  1. Stop backend (:3001) and frontend (:3000)
-  2. Stop lightpool node and clob-indexer
-  3. With clean: delete \$DATA (chain store, indexer, registry) before restart
-  4. Start lightpool node and clob-indexer
-  5. Start backend and frontend
-  6. Create USDT, then AAPL / TSLA / INTC markets
-  7. Fund the maker (./scripts/fund-maker.sh)
-
-  clean   Delete venue data after stop, before node and indexer start
-  stop    Stop backend, frontend, lightpool node, and clob-indexer, then exit
+  start   Node, indexer, backend, frontend, USDT + AAPL/TSLA/INTC, fund maker (default)
+  stop    Stop backend, frontend, node, and indexer. Keep data.
+  clean   Delete \$DATA only. Does not stop. Run stop first if anything is still up.
 
 Env:
   LABS     labs workspace (default: auto-detect)
@@ -249,35 +239,30 @@ INTC|Intel
 EOF
 }
 
-main() {
-  local clean=0
-  case "${1:-}" in
-    "") ;;
-    clean) clean=1 ;;
-    stop)
-      need_cmd ss
-      stop_app
-      echo "=== stop lightpool node and indexer ==="
-      "$VENUE" stop
-      exit 0
-      ;;
-    *)
-      usage >&2
-      exit 1
-      ;;
-  esac
-
-  need_cmd curl
+stop_all() {
   need_cmd ss
-  mkdirs
   stop_app
   echo "=== stop lightpool node and indexer ==="
   "$VENUE" stop
-  if [[ "$clean" -eq 1 ]]; then
-    echo "=== clean venue data ==="
-    "$VENUE" clean
-    mkdirs
-  fi
+}
+
+clean_all() {
+  local name
+  for name in frontend backend lightpool indexer; do
+    if is_running "$name"; then
+      echo "services still running; run: $0 stop" >&2
+      echo "then: $0 clean" >&2
+      exit 1
+    fi
+  done
+  rm -rf "$DATA"
+  echo "cleaned $DATA (node store, indexer, registry, course runtime)"
+}
+
+start_all() {
+  need_cmd curl
+  need_cmd ss
+  mkdirs
   echo "=== start lightpool node and indexer ==="
   "$VENUE" start
   echo "=== start backend and frontend ==="
@@ -287,6 +272,19 @@ main() {
   create_markets
   echo "=== fund maker ==="
   "$FUND"
+}
+
+main() {
+  case "${1:-start}" in
+    start) start_all ;;
+    stop) stop_all ;;
+    clean) clean_all ;;
+    -h|--help|help) usage ;;
+    *)
+      usage >&2
+      exit 1
+      ;;
+  esac
 }
 
 main "$@"

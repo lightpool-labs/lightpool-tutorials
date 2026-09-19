@@ -49,16 +49,15 @@ Off the main trade page (still in the app):
 | 4 | Admin (+ markets list) | Create USDT + stock token, create spot market, fund accounts; wire markets list to load pairs and select spot `ContractAddress`. | 创建 USDT + 股票代币、创建现货市场、给账户打款；打通市场列表，加载交易对并选中现货 `ContractAddress`。 |
 | 5 | Chart (bars) | OHLC into TradingView (or simple candles) for selected market. | 为当前选中市场接入 OHLC（TradingView 或简单 K 线）。 |
 | 6 | Liquidity making (+ order book) | Run a maker bot so the book has size; wire order book UI (bids/asks + live updates; optional recent trades). | 跑做市 bot 让盘口有量；接通订单簿 UI（买卖盘 + 实时更新；可选近期成交）。 |
-| 7 | Deposit / withdraw | Move funds in/out so the user can pay for orders (local mint first; bridge later). | 资金出入，以便用户能下单支付（先本地 mint；桥接稍后）。 |
+| 7 | Deposit / withdraw | Move funds in/out so the user can pay for orders, and show that user's balances in the bottom tabs. | 资金出入，以便用户能下单支付，并在底部状态区显示该用户余额。 |
 | 8 | Order ticket | Buy/sell form → sign with lightpool-sdk → `POST /api/tx/submit`; cancel from open orders. | 买卖表单 → lightpool-sdk 签名 → `POST /api/tx/submit`；从挂单撤单。 |
-| 9 | User bottom tabs | Balances; open orders; order history / fills. | 余额；当前挂单；历史订单 / 成交。 |
 
 ---
 
 ## Order rule
 
 1. **Shell first** (step 3) — every block visible, none finished.  
-2. **Then one step at a time** (steps 4–9).  
+2. **Then one step at a time** (steps 4–8).  
 3. **Deposit / withdraw before order ticket** — otherwise the user cannot fund to place.
 
 ---
@@ -75,4 +74,3 @@ Off the main trade page (still in the app):
 | 6 | `chapter6-liquidity-making/` |
 | 7 | `chapter7-deposit-withdraw/` |
 | 8 | `chapter8-order-ticket/` |
-| 9 | `chapter9-user-tabs/` |

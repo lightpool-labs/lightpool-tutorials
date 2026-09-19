@@ -1,0 +1,158 @@
+Wire Connect, Deposit, and Withdraw on `tokenized-stocks-app`. Connect creates a LightPool agent. Deposit and Withdraw ask MetaMask to sign. Do not move those controls.
+
+## Context (read first)
+
+If this chat has access to `lightpool-tutorials`, read in order:
+
+1. `AGENTS.md`
+2. `common/glossary.md`
+3. `common/architecture.md` (tokenized stocks, then Bridge)
+4. `tokenized-stocks/tokenized-stocks-video-by-chapter.md` (step 7)
+5. `skills/spot-lightpool/SKILL.md`
+6. `skills/spot-lightpool/tx-submit.md`
+
+Prerequisite: from `lightpool-tutorials/`, the user already ran `./scripts/start-stocks-07.sh`. That script starts Reth (`http://127.0.0.1:8545`), the LightPool node, clob-index (`http://127.0.0.1:3002`), `lightpool-bridge`, the app backend (`:3001`), and the frontend (`:3000`). It writes:
+
+```text
+$LABS/data/tokenized-stocks/eth-bridge.json
+```
+
+Read that file. Do not deploy contracts and do not write a new startup script. Use the USDT entry only:
+
+| Field | Meaning |
+|-------|---------|
+| `evm_chain_id` | MetaMask network id for Reth |
+| `evm_bridge` | EVM Bridge contract |
+| `tokens[]` where `symbol == "USDT"` | `evm` = ERC20, `lp` = LightPool cash `ContractAddress` (`0x02…`), `inbound` = inbound bridge for withdraw (`0x06…`) |
+
+`Address` is the user. `ContractAddress` is the token or the inbound bridge. Do not mix them.
+
+This prompt is **Connect + Deposit + Withdraw only**. Do not implement Buy/Sell, cancel, the order book, the chart, Admin, or the maker bot.
+
+## Where the controls stay
+
+Do not add a new page. Do not put Deposit or Withdraw in the top bar.
+
+| Control | File | Place |
+|---------|------|--------|
+| Connect | `frontend/components/TopBar.tsx` | Existing `.connect-btn`. After success, show the shortened connected address on that same button. |
+| Deposit, Withdraw | `frontend/components/OrderTicket.tsx` | Existing `.ticket-section` whose heading is `Deposit / Withdraw`, under the order form. Keep both buttons in `.fund-actions`. |
+
+The order form (Buy/Sell, price, size) stays disabled. Only enable Deposit and Withdraw.
+
+When the user clicks Deposit or Withdraw, ask for the amount **in that same section** (one input under the two buttons is enough). Do not open another route.
+
+## 1. Connect creates an agent
+
+Click **Connect**:
+
+1. `eth_requestAccounts` on the injected MetaMask provider.
+2. Switch MetaMask to Reth: chain id = `eth-bridge.json` `evm_chain_id`, RPC `http://127.0.0.1:8545`, chain name `LightPool Local Reth`. Add the chain if MetaMask does not have it.
+3. If this browser has no agent key yet, generate a secp256k1 key in the page and keep it in `sessionStorage`. Never send the agent private key to the backend.
+4. Ask the backend to build an unsigned `set_agent` transaction: sender = connected wallet `Address`, agent = the generated agent `Address`.
+5. Ask MetaMask to sign that transaction with `eth_signTypedData_v4`. Domain and message:
+
+```text
+domain.name = "LightPool"
+domain.version = "1"
+domain.chainId = 1337
+domain.verifyingContract = 0x0000000000000000000000000000000000000000
+primaryType = "LightPoolTx"
+types.LightPoolTx = [{ name: "digest", type: "bytes32" }]
+message.digest = <tx digest from the backend>
+```
+
+This `chainId` 1337 is the LightPool EIP-712 domain. It is not the Reth chain id. Do not switch MetaMask away from Reth before this signature.
+
+6. MetaMask returns 65 bytes (`r || s || v`). LightPool wants 64 bytes (`r || s`). Drop the last byte.
+7. Backend attaches that signature (`AuthScheme::Eip712`) and submits to `POST http://127.0.0.1:3002/api/tx/submit`. The node must accept `set_agent`.
+8. If this wallet already has an agent in `sessionStorage` and `set_agent` already succeeded this session, do not prompt again. Clicking Connect again only reconnects.
+
+Backend routes (app `:3001`, not the indexer):
+
+```text
+POST /api/agent/prepare
+{ "user": "0x…", "agent": "0x…" }
+
+→ {
+    "digest_hex": "0x…",
+    "unsigned_tx_hex": "0x…",
+    "eip712": { "domain", "types", "primaryType", "message" }
+  }
+
+POST /api/agent/submit
+{ "unsigned_tx_hex": "0x…", "signature": "0x<64-byte r||s>" }
+
+→ { "digest": "…", "status": "submitted" }
+```
+
+Build the unsigned transaction with `lightpool-sdk` `ActionBuilder::set_agent` and `TransactionBuilder::build()` (no local signature). Submit with `SignedTransaction::new_with_scheme(..., AuthScheme::Eip712)`.
+
+## 2. Deposit (Reth, two MetaMask transactions)
+
+USDT only. Amount the user typed, 6 decimals. Raw amount = whole tokens × `1_000_000`, and it must fit in `uint64`.
+
+Click **Deposit** in the order ticket:
+
+1. Require a connected wallet. If not connected, run the Connect flow first.
+2. If MetaMask is not on `evm_chain_id`, ask it to switch.
+3. MetaMask popup 1: ERC20 `approve(address spender, uint256 amount)` on the USDT `evm` address. `spender` = `evm_bridge`. Send with `eth_sendTransaction`. Do not use gas estimation (it hangs on local Reth). Use gas `0x7a120`.
+4. Wait for that receipt.
+5. MetaMask popup 2: Bridge `deposit(address token, uint64 amount, address lightpoolRecipient)`. `token` = USDT `evm`, `lightpoolRecipient` = the connected wallet, `to` = `evm_bridge`. Gas `0xf4240`.
+6. Wait for that receipt. Show a short status in the same Deposit / Withdraw section (`Deposit submitted`). The bridge process credits LightPool USDT. Do not sign a LightPool transaction for deposit.
+
+## 3. Withdraw (LightPool signature, one MetaMask popup)
+
+USDT only. Same amount rules. `token` = USDT `lp`. `foreign_recipient` = the connected wallet (20-byte address). Bridge contract = USDT `inbound` from `eth-bridge.json`, not a hardcoded id.
+
+Click **Withdraw**:
+
+1. Require Connect (agent already created).
+2. `POST /api/withdraw/prepare` with `{ "user", "token", "amount", "inbound", "foreign_recipient" }`.
+3. Backend builds unsigned `bridge_withdraw` the same way as `set_agent` (`ActionBuilder::bridge_withdraw` on that `inbound` contract).
+4. MetaMask signs the same `LightPoolTx` typed data (domain chain id **1337**).
+5. Drop the `v` byte. `POST /api/withdraw/submit` with `{ "unsigned_tx_hex", "signature" }`.
+6. Backend submits to clob-index. Show `Withdraw submitted` in the same section. Do not send an ERC20 transaction for withdraw.
+
+## Backend config
+
+Load `$LABS/data/tokenized-stocks/eth-bridge.json` (from `backend/` cwd this is `../../data/tokenized-stocks/eth-bridge.json`). Expose:
+
+```text
+GET /api/bridge
+```
+
+Return `evm_chain_id`, `evm_rpc` (`http://127.0.0.1:8545`), `evm_bridge`, and each token's `symbol`, `evm`, `lp`, and `inbound`. The frontend uses this. Do not hardcode contract addresses in the page.
+
+## 4. Balances in the user state block
+
+The user state block is `frontend/components/BottomTabs.tsx` (`.bottom-tabs`). It already has tabs **Balances | Open orders | History | Fills**. Fill **Balances** only. Leave Open orders, History, and Fills as the empty placeholder.
+
+Balances columns stay **Asset, Available, Locked, Total**.
+
+After Connect, and again after a Deposit receipt or a Withdraw submit, load the connected user's LightPool balances:
+
+```text
+POST http://127.0.0.1:3002/api/accounts/{address}/balances
+{ "tokens": [ { "symbol": "USDT", "address": "<lp ContractAddress>" }, … ] }
+```
+
+`address` is the connected wallet. `tokens` is every entry in `eth-bridge.json` (`USDT`, `AAPL`, `TSLA`, `INTC`) using each token's `lp` field. One row per token. If the user is not connected, keep the empty Balances row. Do not add a new tab and do not move this table.
+
+## Out of scope
+
+- Buy, Sell, cancel
+- Open orders, History, and Fills tabs (placeholders stay)
+- Moving Deposit / Withdraw out of the order ticket
+- A new `/cash` page or a deposit button in the top bar
+- Creating tokens, markets, or bridge routes
+- `fund-maker.sh`, `start-stocks-06.sh`, or minting a second USDT on LightPool
+- Editing `lightpool`, `lightpool-bridge`, or `lightpool-node`
+
+## Verify
+
+1. `./scripts/start-stocks-07.sh` is already up. `eth-bridge.json` exists.
+2. Trade page: Connect asks MetaMask to connect, then asks it to sign `set_agent`. The top bar shows the address.
+3. Order ticket: Deposit asks MetaMask to approve, then to deposit. Withdraw asks MetaMask to sign one LightPool typed-data message.
+4. Buy/Sell stays disabled. No new route was added.
+5. Balances tab lists USDT, AAPL, TSLA, and INTC for the connected wallet. After Deposit, USDT Available increases. Open orders, History, and Fills stay empty.
