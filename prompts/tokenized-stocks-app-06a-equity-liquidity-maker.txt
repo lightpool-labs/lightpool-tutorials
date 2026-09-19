@@ -1,0 +1,154 @@
+Implement **equity-liquidity-maker** in `lightpool-bot`: subscribe Hyperliquid equity L2 and mirror resting liquidity onto LightPool spot.
+
+## Context (read first)
+
+If this chat has access to `lightpool-tutorials`, read in order:
+
+1. `AGENTS.md`
+2. `common/glossary.md`
+3. `common/architecture.md` (tokenized stocks)
+4. `tokenized-stocks/tokenized-stocks-video-by-chapter.md` (step 6 — liquidity making)
+5. `tokenized-stocks/chapter4-admin/README.md` (test accounts; Anvil #0 = maker)
+6. `tokenized-stocks/chapter6-liquidity-making/README.md`
+
+Also open sibling repo **`lightpool-bot`** (user must clone it):
+
+- Architecture template (Polymarket → LightPool; **do not modify its behavior**):
+  - `crates/strategies/src/bin/liquidity_maker.rs`
+  - `crates/strategies/src/liquidity_maker/` (`strategy.rs`, `sync.rs`, config)
+- Hyperliquid L2 / WS: `crates/adapters/hyperliquid/` (L2Book subscribe / deltas)
+- LightPool data + execution: existing `nautilus-lightpool` factories used by `liquidity-maker`
+
+Prerequisites:
+
+- Venue: `lightpool-tutorials/scripts/run-venue.sh start`
+- `tokenized-stocks-app` Admin already created USDT cash + stock spots (e.g. `AAPL/USDT`, `TSLA/USDT`, `INTC/USDT`) with known `spot_market` addresses
+- Maker key = Anvil #0 (same as validator):  
+  `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
+
+This prompt is **6a — Liquidity making only**. Do **not** implement the Order book UI (that is `tokenized-stocks-app-06b-orderbook-ui.txt`).
+
+Product: **US equities** only. No Polymarket. No crypto ticker examples in CLI help or docs for this binary.
+
+## Goal
+
+In **`lightpool-bot`** (not `tokenized-stocks-app`):
+
+1. Add a **new** strategy module and binary named **`equity-liquidity-maker`**.
+2. CLI takes LightPool equity **symbol(s) only** for the HL side, e.g. `--symbol AAPL,TSLA,INTC`. For each symbol `S`, the bot **internally** sets Hyperliquid coin = `"xyz:" + S` (e.g. `xyz:AAPL`, `xyz:TSLA`, `xyz:INTC`). **No** CLI flag for Hyperliquid coin / mapping.
+3. Subscribe to Hyperliquid order book (snapshot + deltas) for that coin.
+4. Reconcile and place/cancel orders on the matching LightPool **spot** market so clob-index shows bids/asks.
+
+Do **not** change the existing `liquidity-maker` Polymarket path except to leave it working.
+
+## Naming
+
+| Item | Name |
+|------|------|
+| Binary | `equity-liquidity-maker` |
+| Module | `equity_liquidity_maker` |
+| Strategy type | `EquityLiquidityMaker` |
+
+Register the `[[bin]]` in `crates/strategies/Cargo.toml` next to `liquidity-maker`. Add Hyperliquid adapter dependency to `lightpool-strategies` if missing (follow workspace crate names already used in the bot).
+
+## CLI (user-facing)
+
+Minimum:
+
+```bash
+cargo run -p lightpool-strategies --bin equity-liquidity-maker -- \
+  --symbol AAPL,TSLA,INTC \
+  --spot-market 0x03...,0x03...,0x03...
+```
+
+(If spot addresses are passed, list them in the **same order** as symbols. Prefer loading spot addresses from the app registry by symbol when available.)
+
+Rules:
+
+- `--symbol` (required): one or more equity tickers as on LightPool / Admin, **comma-separated**, e.g. `AAPL,TSLA,INTC`. Trim spaces; uppercase normalize if useful. Tutorial default set: **AAPL, TSLA, INTC**.
+- Hyperliquid coin per symbol: **code only** → `format!("xyz:{symbol}")`. Never expose `--hl-coin` / `--hyperliquid-symbol`.
+- `--spot-market`: LightPool spot `ContractAddress` list aligned with `--symbol`, **or** resolve each symbol from `tokenized-stocks-app` registry / documented path so the user can pass symbols only.
+- Also pass whatever LightPool already needs for exec (private key via same env as `liquidity-maker`, clob-index HTTP/WS env). Prefer matching existing LightPool env vars from the Polymarket maker.
+- Useful flags (mirror existing maker where sensible):
+  - `--depth` (default 10)
+  - `--reconcile-delta-batch-size` (default 1): reconcile on every Hyperliquid book delta. Do not wait for a batch of 10.
+  - log interval optional
+
+Do **not** add a `--no-trading` flag for this tutorial binary. The sample run always places/cancels on LightPool.
+
+Run one LiveNode that mirrors **all** listed symbols (subscribe each `xyz:S`, reconcile each LP spot).
+
+## Run after implement (document in binary help / README snippet)
+
+From `lightpool-bot` (venue already running; markets created in Admin; maker key in env):
+
+```bash
+cd lightpool-bot
+cargo run -p lightpool-strategies --release --bin equity-liquidity-maker -- \
+  --symbol AAPL,TSLA,INTC \
+  --spot-market <AAPL_SPOT>,<TSLA_SPOT>,<INTC_SPOT>
+```
+
+Replace `<AAPL_SPOT>`, `<TSLA_SPOT>`, `<INTC_SPOT>` with the three LightPool spot `ContractAddress` values (same order as symbols). If the binary resolves spots from the app registry by symbol, this may be:
+
+```bash
+cargo run -p lightpool-strategies --release --bin equity-liquidity-maker -- \
+  --symbol AAPL,TSLA,INTC
+```
+
+Wait until the bot has reconciled, then **validate books on clob-index** (replace addresses):
+
+```bash
+curl -s "http://127.0.0.1:3002/api/spot/<AAPL_SPOT>/book?depth=10"
+curl -s "http://127.0.0.1:3002/api/spot/<TSLA_SPOT>/book?depth=10"
+curl -s "http://127.0.0.1:3002/api/spot/<INTC_SPOT>/book?depth=10"
+```
+
+Expect JSON with non-empty `bids` and/or `asks` for each. Put these sample commands in the strategy module docs or `lightpool-bot` README section for `equity-liquidity-maker`.
+
+## Behavior
+
+```text
+--symbol AAPL,TSLA,INTC
+    → for each S in [AAPL, TSLA, INTC]:
+         hl_coin = "xyz:S"
+         → subscribe Hyperliquid L2 (book + deltas)
+         → maintain local HL book cache
+         → reconcile vs bot-owned orders on LightPool spot for S
+         → place / cancel on LightPool via execution client → clob-index
+```
+
+Use the same high-level pattern as `LiquidityMaker` + `sync.rs`:
+
+1. Data actor / strategy receives HL book updates.
+2. Batch deltas, then reconcile target depth onto LightPool.
+3. Buy locks quote (USDT); sell locks base (stock token) — respect LightPool spot rules.
+4. Do not mirror a Hyperliquid level whose size is below **0.1 share**. LightPool spot `min_order_size` is raw `100_000` (`TOKEN_SCALE` `1_000_000`). Drop those levels from the reference book. Do not place or modify a LightPool order under 0.1. If the only reason a resting LightPool order remains is that the HL size fell below 0.1, cancel it.
+5. Maker inventory: Admin/maker wallet should already hold USDT and base (fund in Admin if needed); document that in the binary `--help` / short module docs.
+
+Wire LiveNode with:
+
+- Hyperliquid **data** client (for `xyz:SYMBOL`)
+- LightPool **data** + **execution** clients (clob-index), private key = Anvil #0 / env
+
+## Out of scope
+
+- Editing `tokenized-stocks-app` frontend / OrderBookPanel (6b)
+- Polymarket, `--bootstrap-markets`, YES/NO
+- Chart / candle code
+- event-contract-app
+- Renaming or breaking `liquidity-maker`
+
+## Verify
+
+1. Venue up; `AAPL/USDT`, `TSLA/USDT`, and `INTC/USDT` exist on LightPool.
+2. Run the sample command in **Run after implement** (with `--symbol AAPL,TSLA,INTC`, **without** `--no-trading`).
+3. For each spot address, the curl commands above return non-empty `bids` and/or `asks`.
+4. Existing `liquidity-maker` still builds.
+5. CLI help shows `--symbol` (comma-separated list), not a Hyperliquid mapping flag, and no `--no-trading`.
+
+## Stop conditions
+
+- Do not add unit tests unless asked.
+- Do not modify `refs/`.
+- Prefer reusing Hyperliquid + LightPool adapters over raw HTTP in the strategy loop.

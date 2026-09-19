@@ -21,7 +21,7 @@ From `lightpool-tutorials/`:
 | `./scripts/run-venue.sh start` | Start validator + clob-indexer |
 | `./scripts/run-venue.sh status` | Show PIDs |
 | `./scripts/run-venue.sh stop` | Stop services |
-| `./scripts/run-venue.sh clean` | Delete `$LABS/data/tokenized-stocks` only (run `stop` first) |
+| `./scripts/run-venue.sh clean` | Delete `$LABS/data/tokenized-stocks` (venue + `registry.json`; run `stop` first) |
 
 | Service | URL |
 |---------|-----|

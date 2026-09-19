@@ -1,0 +1,92 @@
+Wire Order book UI for `tokenized-stocks-app`: full book from clob-index, then live `orderbook_delta` updates.
+
+## Context (read first)
+
+If this chat has access to `lightpool-tutorials`, read in order:
+
+1. `AGENTS.md`
+2. `common/glossary.md`
+3. `common/architecture.md` (tokenized stocks section)
+4. `tokenized-stocks/tokenized-stocks-video-by-chapter.md` (step 6 — Order book UI part)
+5. `skills/spot-lightpool/SKILL.md`
+6. `skills/spot-lightpool/http.md` (spot book)
+7. `skills/spot-lightpool/ws.md` (`orderbook_delta`)
+8. **`skills/spot-lightpool/orderbook-client.md`** (required — snapshot + subscribe + apply delta)
+
+Prerequisites:
+
+- Venue: `lightpool-tutorials/scripts/run-venue.sh start` (clob-index `:3002`)
+- `tokenized-stocks-app` through chapter 4+ (markets list selects a real spot `ContractAddress`)
+- Chart chapter may already exist; do not break it
+
+This prompt is **Order book UI only** (6b). Do **not** implement the liquidity-maker bot here (that is 6a). An empty book is OK if no maker is running.
+
+**Do not** require `event-contract-app` or any other sample app. All book client rules are in `orderbook-client.md`.
+
+Product: US equities spot on LightPool (e.g. `AAPL/USDT`). No crypto ticker examples in UI copy.
+
+## Goal
+
+In `lightpool-labs/tokenized-stocks-app/frontend/`:
+
+1. Replace the `OrderBookPanel` placeholder with a live order book for the **selected** LightPool spot market.
+2. Load a **full book snapshot** from clob-index, then **subscribe** to `orderbook_delta` for updates.
+3. Frontend talks **directly to clob-index** (`:3002`), not via the app backend, and not to Hyperliquid for this panel.
+
+## Data path
+
+```text
+Selected market.spot_market (ContractAddress 0x03…)
+    → GET  http://127.0.0.1:3002/api/spot/{spot_market}/book?depth=…
+    → WS   ws://127.0.0.1:3002/api/ws  channel=orderbook_delta
+    → OrderBookPanel (asks / mid / bids)
+```
+
+- `spot_market` comes from chapter 4 registry / selected market state.
+- Encode the address in the HTTP path (`encodeURIComponent`).
+- Depth: default `10` or `20` (index clamps 1…50).
+
+Contrast with chart (chapter 5): chart uses Hyperliquid `xyz:SYMBOL` via backend; **order book uses LightPool clob-index only**.
+
+## Implement (follow orderbook-client.md)
+
+1. Add a small client module (e.g. `frontend/lib/orderbook.ts`) with:
+   - `fetchBookSnapshot(spotMarket, depth)`
+   - `applyOrderBookDelta(...)`
+   - `subscribeOrderBook(spotMarket, depth, { onBook, onError })` → returns unsubscribe
+2. Wire `OrderBookPanel` (and `TradeShell` if needed) to the selected market:
+   - On select / change: unsubscribe previous → clear → snapshot → subscribe
+   - On snapshot message: replace book
+   - On delta: merge (`size` `"0"` removes level)
+   - Optional: `requestAnimationFrame` throttle before setState
+3. UI: asks above, mid / last trade, bids below (price, size; optional total). Empty state when no market or empty book.
+4. Env (frontend `.env.example`):
+
+```text
+NEXT_PUBLIC_CLOB_INDEX_URL=http://127.0.0.1:3002
+NEXT_PUBLIC_CLOB_INDEX_WS_URL=ws://127.0.0.1:3002
+```
+
+## Out of scope
+
+- Liquidity maker / Hyperliquid L2 mirroring (prompt 6a)
+- Order ticket place/cancel
+- Deposit / withdraw
+- Changing chart / Hyperliquid bars
+- Proxying book through Axum backend
+- Requiring any repo other than `tokenized-stocks-app` + tutorials skills
+
+## Verify
+
+1. Venue + app running; select a market that has a `spot_market` address.
+2. DevTools: browser calls `:3002` for `/book` and opens WS `/api/ws` (not only `:3001`).
+3. If the book has liquidity (from a prior maker or manual orders), levels appear and update live.
+4. If the book is empty, UI shows empty asks/bids without crashing.
+5. Switch `AAPL/USDT` ↔ another equity market → unsubscribe/resubscribe; book follows the new `spot_market`.
+6. Leave the page / change market → socket cleaned up (no duplicate subscriptions).
+
+## Stop conditions
+
+- Do not add unit tests unless asked.
+- Do not modify LightPool node / indexer internals or `refs/`.
+- Do not invent HTTP/WS fields; use the skill docs above.

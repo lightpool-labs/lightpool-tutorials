@@ -25,18 +25,21 @@ clob-index; the app connects to that deployment’s clob-index URL.
 
 ## How the agent finds API details
 
-Read these three docs in this skill folder (self-contained input/output):
+Read these docs in this skill folder (self-contained input/output):
 
 | Doc | Contents |
 |-----|----------|
 | [http.md](http.md) | All HTTP routes: method, path, input, output |
 | [ws.md](ws.md) | WebSocket subscribe/unsubscribe and message shapes |
 | [tx-submit.md](tx-submit.md) | `POST /api/tx/submit` + how to build `tx` with **lightpool-sdk** |
+| [orderbook-client.md](orderbook-client.md) | Frontend: book snapshot + `orderbook_delta` apply (no other app required) |
 
 Do not invent request/response fields. Prefer the JSON shapes in those docs.
 For signed transactions, build with **`lightpool-sdk`**
 ([lightpool-sdk-rust](https://github.com/lightpool-labs/lightpool-sdk-rust))
 as described in [tx-submit.md](tx-submit.md).
+For a live order book UI, follow [orderbook-client.md](orderbook-client.md)
+(HTTP snapshot then WS deltas against clob-index).
 
 ## Integration path
 

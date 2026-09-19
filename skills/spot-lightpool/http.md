@@ -130,6 +130,14 @@ Amounts/prices in responses are usually **decimal strings** (human-readable scal
 }
 ```
 
+### `GET /api/markets/:symbol/book`
+
+Same book payload as `/api/spot/:spot_market/book`.
+
+`:symbol` = base ticker (`AAPL`), pair name (`AAPL/USDT`), or spot `ContractAddress` hex. Requires the indexer to have seen the spot `market_created` event (create markets with indexer running).
+
+**Input (query):** same `depth` as above.
+
 ### `GET /api/spot/:spot_market/info`
 
 **Input (query):**

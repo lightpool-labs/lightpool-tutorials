@@ -49,9 +49,31 @@ POST http://127.0.0.1:3002/api/tx/submit
 ```text
 ADMIN_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 CLOB_INDEX_URL=http://127.0.0.1:3002
+REGISTRY_PATH=../../data/tokenized-stocks/registry.json
 ```
 
 Confirm admin address equals `0xf39F…2266` at startup (log it).
+
+## Course data directory (required)
+
+All **tokenized-stocks course runtime data** must live under:
+
+```text
+$LABS/data/tokenized-stocks/
+```
+
+(`LABS` = `lightpool-labs` workspace root; same dir `run-venue.sh` uses for wallet / store / indexer.)
+
+Examples:
+
+| Artifact | Path |
+|----------|------|
+| App market registry | `$LABS/data/tokenized-stocks/registry.json` |
+| Node wallet / store / indexer | already under `$LABS/data/tokenized-stocks/` via `run-venue.sh` |
+
+- **Do not** store `registry.json` (or other durable course state) under `tokenized-stocks-app/backend/data/`.
+- Backend env: `REGISTRY_PATH` → `$LABS/data/tokenized-stocks/registry.json` (from `backend/` cwd: `../../data/tokenized-stocks/registry.json`).
+- `./scripts/run-venue.sh clean` deletes this whole directory — app market list is wiped with the venue.
 
 ## Token and market rules
 
@@ -71,8 +93,13 @@ One Admin action “create AAPL market” (or form: symbol `AAPL`, name `Apple`)
 2. `create_market` / spot market for **`AAPL/USDT`**:
    - `base_token` = AAPL
    - `quote_token` = USDT (cash from step 1)
-   - sensible defaults: e.g. tick/min size similar to node docs (`tick_size` / `min_order_size` in on-chain scale via `TOKEN_SCALE` as in SDK examples)
    - `creator` = admin address
+   - **Tick size must align with Hyperliquid US equity L2** (coins `xyz:AAPL`, `xyz:TSLA`, `xyz:INTC`, etc.):
+     - HL equity books quote in **dollar and cents** (prices like `330.41`, `330.40` — typically **$0.01** steps in the top of book).
+     - LightPool `tick_size` is on-chain raw units: **`0.01 * TOKEN_SCALE` = `10_000`** (not `1_000_000` / $1).
+     - **Do not** use a $1 tick. Chapter 6 `equity-liquidity-maker` mirrors HL depth (e.g. 10 levels) onto LightPool by aligning prices to this tick; a $1 tick collapses HL’s sub-dollar depth-10 into 1–2 LP levels, so the LightPool book will look empty/shallow even when the bot is healthy.
+     - Apply the same tick for **AAPL, TSLA, INTC** and any other US equity symbol created in Admin.
+   - `min_order_size`: sensible default (e.g. `0.1 * TOKEN_SCALE` = `100_000`), not coarser than needed for demo sizes.
 
 Parse and store:
 
@@ -100,7 +127,7 @@ Keep thin Axum backend as clob-index client + admin signer. Example routes (name
 | GET | `/api/markets` | List markets the app has created/registered (symbol, name, base, quote, spot_market) |
 | GET | `/api/markets/:id` or by symbol | One market |
 
-Persist markets in memory or a simple local file/sqlite under the app (clob-index `GET /api/markets` is event-oriented — **do not rely on it** for spot pair list). After create, append to the app registry.
+Persist markets in `$LABS/data/tokenized-stocks/registry.json` (clob-index `GET /api/markets` is event-oriented — **do not rely on it** for spot pair list). After create, append to that registry. Do **not** write durable course data under the app source tree.
 
 Submit path: always sign with admin key → `POST {CLOB_INDEX_URL}/api/tx/submit`.
 
@@ -135,8 +162,10 @@ Do **not** implement chart bars, live order book, place-order ticket, deposit/wi
 2. Backend runs with `ADMIN_PRIVATE_KEY` = Anvil #0; admin address matches validator.
 3. Admin: create/ensure USDT first — receipt success; cash address shown.
 4. Admin: create AAPL market — creates AAPL token **and** `AAPL/USDT` spot; both addresses shown.
-5. Trade page markets list shows `AAPL/USDT`; selecting it sets the spot market id in UI state.
-6. Fresh venue after `stop` + `clean` + `start`: flow still works (create USDT again, then AAPL).
+5. Confirm spot `tick_size` is **$0.01** on chain / via clob-index `GET /api/spot/:spot_market/info` (`tick_size` ≈ `"0.010000"` or raw `10000`), **not** `"1"`. Same when creating TSLA / INTC.
+6. Trade page markets list shows `AAPL/USDT`; selecting it sets the spot market id in UI state.
+7. Fresh venue after `stop` + `clean` + `start`: `$LABS/data/tokenized-stocks` (including `registry.json`) is gone; flow still works (create USDT again, then AAPL).
+8. Confirm markets are persisted at `$LABS/data/tokenized-stocks/registry.json`, not under `tokenized-stocks-app/backend/data/`.
 
 ## Stop conditions
 

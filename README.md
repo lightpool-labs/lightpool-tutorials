@@ -13,6 +13,7 @@ Step-by-step tutorials for building apps on LightPool.
   - [`chapter3-rough-ui-shell`](tokenized-stocks/chapter3-rough-ui-shell/README.md)
   - [`chapter4-admin`](tokenized-stocks/chapter4-admin/README.md)
   - [`chapter5-chart-bars`](tokenized-stocks/chapter5-chart-bars/README.md)
+  - [`chapter6-liquidity-making`](tokenized-stocks/chapter6-liquidity-making/README.md)
 
 ## Agent pack (this repo)
 

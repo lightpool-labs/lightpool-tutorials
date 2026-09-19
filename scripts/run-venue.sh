@@ -36,10 +36,25 @@ VALIDATOR_PATH="$DATA/validator.json"
 INDEXER_DATA="$DATA/indexer"
 
 NODE_DIR="$LABS/lightpool-node"
+LIGHTPOOL_DIR="$LABS/lightpool"
 INDEXER_DIR="$LABS/lightpool-clob-indexer"
 
-LIGHTPOOL_BIN="${LIGHTPOOL_BIN:-$NODE_DIR/bin/lightpool}"
-INDEXER_BIN="${INDEXER_BIN:-$NODE_DIR/bin/lightpool-clob-indexer}"
+# Prefer lightpool source release binary (for local debug logs); fall back to node/bin.
+if [[ -z "${LIGHTPOOL_BIN:-}" ]]; then
+  if [[ -x "$LIGHTPOOL_DIR/target/release/lightpool" ]]; then
+    LIGHTPOOL_BIN="$LIGHTPOOL_DIR/target/release/lightpool"
+  else
+    LIGHTPOOL_BIN="$NODE_DIR/bin/lightpool"
+  fi
+fi
+# Prefer a freshly built indexer (has /api/markets/:symbol/book); fall back to node/bin.
+if [[ -z "${INDEXER_BIN:-}" ]]; then
+  if [[ -x "$INDEXER_DIR/target/release/lightpool-clob-indexer" ]]; then
+    INDEXER_BIN="$INDEXER_DIR/target/release/lightpool-clob-indexer"
+  else
+    INDEXER_BIN="$NODE_DIR/bin/lightpool-clob-indexer"
+  fi
+fi
 
 usage() {
   cat <<EOF
@@ -54,6 +69,8 @@ Env:
   LABS            labs workspace (default: auto-detect)
   DATA            runtime data dir (default: \$LABS/data/tokenized-stocks)
   LIGHTPOOL_BIN   path to lightpool CLI
+                  (default: \$LABS/lightpool/target/release/lightpool,
+                   else \$LABS/lightpool-node/bin/lightpool)
   INDEXER_BIN     path to lightpool-clob-indexer
 EOF
 }
@@ -68,9 +85,10 @@ need_cmd() {
 ensure_bins() {
   if [[ ! -x "$LIGHTPOOL_BIN" ]]; then
     echo "lightpool binary not found: $LIGHTPOOL_BIN" >&2
-    echo "Build lightpool-node (cargo build --release) and ensure bin/lightpool exists." >&2
+    echo "Build from lightpool: (cd \"\$LABS/lightpool\" && cargo build --release -p lightpool)" >&2
     exit 1
   fi
+  echo "using LIGHTPOOL_BIN=$LIGHTPOOL_BIN"
   if [[ ! -x "$INDEXER_BIN" ]]; then
     if [[ -x "$INDEXER_DIR/target/release/lightpool-clob-indexer" ]]; then
       INDEXER_BIN="$INDEXER_DIR/target/release/lightpool-clob-indexer"
@@ -234,7 +252,7 @@ clean_all() {
     exit 1
   fi
   rm -rf "$DATA"
-  echo "cleaned $DATA"
+  echo "cleaned $DATA (venue store + indexer + registry.json + course runtime)"
 }
 
 status_all() {
