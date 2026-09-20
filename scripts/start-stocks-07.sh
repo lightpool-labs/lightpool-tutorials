@@ -407,7 +407,8 @@ create_spot() {
   lp create-spot-market \
     --name "$symbol/USDT" \
     --base-token "$base" \
-    --quote-token "$quote" >"$log" 2>&1 || true
+    --quote-token "$quote" \
+    --allow-market-orders >"$log" 2>&1 || true
   cat "$log" >&2
   require_lp_ok "$log"
   spot="$(parse_labeled "$log" "Spot Market" "0x03" || true)"
@@ -711,8 +712,24 @@ start_all() {
   start_backend
   start_frontend
   wait_http "$APP_API/health" "backend"
+  enable_market_orders
   echo
   print_metamask_state
+}
+
+enable_market_orders() {
+  echo "=== enable market orders on spot markets ==="
+  local body code
+  body="$(curl -sS -X POST "$APP_API/admin/enable-market-orders" -w "\n%{http_code}" || true)"
+  code="$(printf '%s\n' "$body" | tail -n1)"
+  body="$(printf '%s\n' "$body" | sed '$d')"
+  if [[ "$code" != "200" ]]; then
+    echo "warn  enable-market-orders HTTP $code: $body" >&2
+    echo "warn  Market tab may fail until allow_market_orders is true on each spot" >&2
+    return 0
+  fi
+  echo "ok    market orders enabled"
+  printf '%s\n' "$body"
 }
 
 print_metamask_state() {

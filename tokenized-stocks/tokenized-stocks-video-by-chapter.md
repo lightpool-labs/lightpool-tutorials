@@ -24,7 +24,7 @@ Rough layout (same idea as Hyperliquid trade):
 │          │                      │                          │  Deposit /       │
 │          │                      │                          │  Withdraw        │
 ├──────────┴──────────────────────┴──────────────────────────┤                  │
-│ Bottom tabs: Balances | Open orders | History | Fills      │                  │
+│ Bottom tabs: Balances | Open orders | Order history | Trade history │                  │
 └────────────────────────────────────────────────────────────┴──────────────────┘
 ```
 
@@ -50,7 +50,7 @@ Off the main trade page (still in the app):
 | 5 | Chart (bars) | OHLC into TradingView (or simple candles) for selected market. | 为当前选中市场接入 OHLC（TradingView 或简单 K 线）。 |
 | 6 | Liquidity making (+ order book) | Run a maker bot so the book has size; wire order book UI (bids/asks + live updates; optional recent trades). | 跑做市 bot 让盘口有量；接通订单簿 UI（买卖盘 + 实时更新；可选近期成交）。 |
 | 7 | Deposit / withdraw | Move funds in/out so the user can pay for orders, and show that user's balances in the bottom tabs. | 资金出入，以便用户能下单支付，并在底部状态区显示该用户余额。 |
-| 8 | Order ticket | Buy/sell form → sign with lightpool-sdk → `POST /api/tx/submit`; cancel from open orders. | 买卖表单 → lightpool-sdk 签名 → `POST /api/tx/submit`；从挂单撤单。 |
+| 8 | Order ticket | First reshape the ticket UI (8a). Then Enable trading + place Limit/Market and live Open orders / Order history / Trade history (8b). | 先改下单区 UI（8a）。再 Enable trading、下单，并接通 Open orders / Order history / Trade history（8b）。 |
 
 ---
 

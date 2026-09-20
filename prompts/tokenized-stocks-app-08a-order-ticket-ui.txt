@@ -1,0 +1,82 @@
+Adjust the order-ticket UI on `tokenized-stocks-app` toward a Hyperliquid-style trade ticket. Layout and controls only. Do not place or cancel orders yet.
+
+## Context (read first)
+
+If this chat has access to `lightpool-tutorials`, read in order:
+
+1. `AGENTS.md`
+2. `common/glossary.md`
+3. `common/architecture.md` (tokenized stocks section)
+4. `tokenized-stocks/tokenized-stocks-video-by-chapter.md` (step 8 — UI part)
+5. `skills/spot-lightpool/SKILL.md`
+
+Prerequisite: chapter 7 is done. From `lightpool-tutorials/`, the user already ran `./scripts/start-stocks-07.sh` (Reth, node, clob-index, bridge, app). Connect, Deposit, and Withdraw already work. Keep those behaviors. This prompt only reshapes the ticket and the bottom user-state tabs.
+
+Reference layout (look, not copy HTML): [Hyperliquid Trade HYPE/USDC](https://app.hyperliquid.xyz/trade/HYPE/USDC). Product copy stays US equities (AAPL/TSLA/INTC), not crypto tickers.
+
+This prompt is **order-ticket UI only (8a)**. Do **not** implement Buy/Sell submit, cancel, or live open-orders / history data. That is a later prompt.
+
+## Goal
+
+In `lightpool-labs/tokenized-stocks-app/frontend/`:
+
+1. Reshape `OrderTicket` and the bottom user-state tabs to match the rules below.
+2. Keep Deposit / Withdraw in the right ticket column. They must open a dialog (token + amount), not use the current inline USDT-only amount field as the main flow.
+3. Keep Connect in the top bar. Do not move Deposit / Withdraw into the top bar or onto a new page.
+
+## Layout rules
+
+### Order ticket column
+
+1. **Market / Limit tabs** at the top of the order form (above Buy / Sell).
+2. **Buy / Sell** side toggle under those tabs.
+3. **Available balance** is the first line under Buy / Sell (relevant Available for the selected side and market: quote for buy, base for sell). Use the connected wallet balances already loaded in chapter 7.
+4. **Size** input next. Add a **draggable percentage scale** (slider) so the user can set size as a percentage of that available balance.
+   - **Buy** size is base amount = (available quote × pct / 100) / price. **Sell** size is base amount = available base × pct / 100 (no price needed).
+   - **If there is no usable price** (empty Limit price field, or Market): use mid = `(best bid + best ask) / 2` from the selected market’s LightPool order book (clob-index snapshot / live book). If only one side exists, use that side; else fall back to `last_trade_price` when present.
+   - **Book price units:** clob-index book `price` strings are in **cents**. Convert to human USDT dollars with `price / 100` before using mid (or any book level) in the size formula — same display rule as the chapter 6b order book UI. Do **not** treat raw book prices as dollars (that understates size by ~100×).
+5. For **Limit**, show a price field. For **Market**, hide or disable price.
+6. Put the primary action button (**Enable** / submit placeholder) at the **bottom** of the order form, above the Deposit / Withdraw divider. Keep it disabled in this step (no place-order).
+7. **Deposit** and **Withdraw** stay below that divider. Clicking either opens a **dialog** to choose the token and enter the amount, then run the existing chapter 7 MetaMask flow for that token. Do not keep the inline amount field as the only way to enter amount.
+
+### Shared divider
+
+Draw a horizontal line above the Deposit / Withdraw section in the order-ticket column. That line must **align with** and **visually continue into** the horizontal line above the Balances area in the bottom user-state block (one continuous divider across the ticket column and the bottom tabs column). Adjust CSS grid / borders so the two lines meet; do not leave a gap or a misaligned step.
+
+### User-state tabs (`BottomTabs`)
+
+Tab order and names:
+
+| Tab | Meaning | Columns (headers only in this step) |
+|-----|---------|-------------------------------------|
+| **Balances** | Asset balances | Asset, Available, Locked, Total |
+| **Open orders** | Orders still live on the book | Market, Side, Price, Size, Status |
+| **Order history** | Past orders (filled, cancelled, rejected) — rename from `History` | Time, Market, Side, Price, Size, Status |
+| **Trade history** | Executions / fills — rename from `Fills` | Time, Market, Side, Price, Size, Fee |
+
+Rules:
+
+- **Balances:** show only assets whose Available, Locked, or Total is **not** all zero. Hide rows where Available, Locked, and Total are all `0`.
+- **Open orders**, **Order history**, and **Trade history:** keep empty placeholder tables with the column headers above. Do not wire live data yet.
+- **Order history** = one row per order lifecycle (not per fill). **Trade history** = one row per execution/fill (one order may produce many fills).
+
+## Out of scope
+
+- `POST /api/tx/submit` for place / cancel
+- Wiring Buy / Sell to LightPool orders
+- Loading open orders, order history, or trade history from clob-index
+- Changing Reth / bridge / start scripts
+- Chart, order book, Admin, or maker bot
+- Requiring `event-contract-app` or any other sample app
+
+## Verify
+
+Prerequisite: `./scripts/start-stocks-07.sh` finished; MetaMask connected as the demo user with some USDT on LightPool.
+
+1. Order ticket shows Market / Limit tabs, Buy / Sell, available balance line, size + percentage slider, and a disabled bottom Enable / submit button.
+2. With ~1000 USDT available, no Limit price filled, and book mid around `$334`: pressing **50%** yields about **1.5** base size (not ~0.015). Mid uses `(best bid + best ask) / 2` with book prices converted **cents → dollars** (`/ 100`).
+3. Deposit / Withdraw open a dialog (token + amount). After deposit, Balances updates.
+4. Zero-balance assets do not appear in the Balances table.
+5. Bottom tabs are Balances, Open orders, Order history, Trade history (renamed from History / Fills).
+6. The divider above Deposit / Withdraw lines up with the divider above Balances.
+7. Buy / Sell still does not submit an order.

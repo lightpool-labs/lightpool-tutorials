@@ -1,0 +1,169 @@
+Wire **Enable trading**, place/cancel Limit/Market orders, and live **Open orders**, **Order history**, and **Trade history** on `tokenized-stocks-app`.
+
+## Context (read first)
+
+If this chat has access to `lightpool-tutorials`, read in order:
+
+1. `AGENTS.md`
+2. `common/glossary.md`
+3. `common/architecture.md` (tokenized stocks section)
+4. `tokenized-stocks/tokenized-stocks-video-by-chapter.md` (step 8)
+5. `skills/spot-lightpool/SKILL.md`
+6. `skills/spot-lightpool/http.md` (`GET /api/orders`, balances, optional `GET /api/orders/:id/cancel-context`)
+7. `skills/spot-lightpool/ws.md` (`user` channel)
+8. `skills/spot-lightpool/tx-submit.md` (`place_order`, `cancel_order`)
+
+Prerequisite:
+
+- Chapter 7 done (`set_agent` on Connect; Deposit / Withdraw work).
+- Chapter **8a** done (Market/Limit ticket layout, Deposit/Withdraw dialog, tab names Order history / Trade history).
+- From `lightpool-tutorials/`: `./scripts/start-stocks-07.sh` is up (Reth, node, clob-index `:3002`, bridge, app `:3001` / `:3000`).
+
+This prompt is **8b — Enable trading + place/cancel order + live user tabs**. Do not redo 8a layout. Do not change Admin, chart, order book, or the maker bot. Do not require `event-contract-app`.
+
+Product: US equities spot (AAPL/TSLA/INTC). `Address` = user; `ContractAddress` = token / spot. Buy locks **quote** (USDT); sell locks **base**.
+
+## Goal
+
+In `lightpool-labs/tokenized-stocks-app/`:
+
+1. Make the bottom ticket button work as **Enable trading**, then as **Buy / Sell** once trading is enabled.
+2. Place Limit and Market orders for the selected spot market through clob-index `POST /api/tx/submit`.
+3. Fill **Open orders**, **Order history**, and **Trade history** with live data for the connected user (HTTP snapshot + WS `user` channel).
+4. Put a **Cancel** button on each **Open orders** row so the user can cancel that live order (agent-signed, same session as place).
+
+## 1. Enable trading
+
+Hyperliquid-style: Connect selects the wallet; **Enable trading** authorizes trading for this session.
+
+1. Require Connect first (MetaMask account + chapter 7 agent in `sessionStorage`).
+2. Click **Enable trading**:
+   - If `set_agent` is not yet marked authorized for this account, run the same chapter 7 agent flow (prepare → MetaMask `eth_signTypedData_v4` → submit).
+   - If already authorized, mark this session as trading-enabled without another signature when possible.
+3. After trading is enabled:
+   - The bottom button becomes **Buy {SYMBOL}** / **Sell {SYMBOL}** (side-aware), not a permanent “Enable” label.
+   - Until enabled, Buy/Sell / size submit stays blocked; show Enable trading instead.
+
+Do not put Enable trading in the top bar.
+
+## 2. Place order (Limit / Market)
+
+When trading is enabled and the user clicks Buy/Sell:
+
+1. Read Market vs Limit, side, size (and price for Limit) from the 8a ticket.
+2. Resolve `spot_market`, `base_token`, `quote_token` from the selected market / registry.
+3. `token_address` = quote for buy, base for sell.
+4. Build `place_order` with `lightpool-sdk` (`ActionBuilder::place_order`, `PlaceOrderParams`). Amount and `limit_price` use on-chain scale (same 6-decimal convention as chapter 7 balances / deposits). Limit **price input** stays human dollars (e.g. `334`); `parse_amount_6` / SDK scale handles on-chain units — do not ask the user to type book cents.
+5. Prefer signing with the **session agent** key so MetaMask is not required on every order after Enable trading. If the stack cannot agent-sign yet, prepare unsigned on the backend and use MetaMask EIP-712 the same way as `set_agent` / withdraw (document which path you ship).
+6. Submit `{ "tx": SignedTransaction }` to `POST http://127.0.0.1:3002/api/tx/submit` (via app backend proxy if you already proxy agent/withdraw that way).
+7. On success, refresh balances and user order tabs. On failure, show the error on the ticket.
+
+**Size percentage (keep / fix from 8a):**
+
+1. If Limit price is empty, or order type is Market: use mid = `(best bid + best ask) / 2` from the LightPool book for Buy % → base size. Sell % still uses available base only.
+2. Book `price` from clob-index is in **cents**; convert with `/ 100` to dollars before mid or any book level enters the size math (same as 6b order book display). Example: book `"33400"` → `$334`; 50% of 1000 USDT ≈ `1.5` AAPL, not `~0.015`.
+
+Market vs Limit:
+
+- **Limit:** `OrderParamsType::Limit` with GTC (or the SDK default used elsewhere in this stack). Price is **required to submit**. If the price field is empty, show a clear error such as **`Enter a price`** — do **not** auto-fill mid into the Limit price on submit (mid is only for the % → size slider).
+- **Market:** `OrderParamsType::Market` with slippage (e.g. 100 bps). Hide the Limit price field in the UI; % slider still uses mid.
+
+**Market bound price (required — common bug):**
+
+LightPool market buys still take a `limit_price` on `PlaceOrderParams`. That value is the **worst-price bound** used to lock quote: roughly `buy_lock_quote(size, bound)` ≈ `size × bound` (plus fees). It is **not** optional decoration.
+
+1. Derive the bound from book **mid in dollars** (cents `/ 100`), with a small pad and $0.01 tick, e.g. buy `mid × 1.01`, sell `mid × 0.99`. Pass that string into prepare/place the same way as a Limit price (6-decimal parse / on-chain scale).
+2. Wait for a valid mid before submitting Market; if mid is missing, show an error (do not submit).
+3. **Do not** hard-code a huge buy bound such as `1_000_000 * TOKEN_SCALE` ($1,000,000 per share). That locks ~1.5 AAPL × $1M ≈ **$1.5M USDT** and fails with `Insufficient balance: available 1000000000 but need ~1527…` even when the user only has ~1000 USDT and mid is ~$334.
+4. Sanity check: ~1.5 AAPL at mid ~$334 with ~1% pad should lock on the order of **~$500 USDT**, not millions.
+
+### App backend routes (avoid HTTP 404)
+
+Wire prepare/submit through the app backend (same pattern as agent / withdraw), e.g.:
+
+- `POST /api/orders/prepare`
+- `POST /api/orders/submit`
+- `POST /api/orders/cancel/prepare`
+- `POST /api/orders/cancel/submit` (may reuse the same submit handler as place if it only attaches the signature and forwards to clob-index)
+
+After adding these routes, **rebuild and restart** `tokenized-stocks-backend`. An old release binary without these routes returns bare **`HTTP 404`** even when the frontend and place-order code are correct. Prefer `cargo build --release` into `backend/target/release/` (watch for a stale binary / `CARGO_TARGET_DIR` redirect), then restart the process listening on `:3001`.
+
+## 2b. Cancel from Open orders
+
+Each live row under **Open orders** must show a **Cancel** control (button on that row).
+
+1. Require trading enabled (same session agent as place). Disable Cancel when not enabled or while a cancel is in flight for that row.
+2. Inputs from the listed order: `spot_market` + `chain_order_id` (u64 string from the index). Optional: confirm via `GET /api/orders/:id/cancel-context?user_address=<Address>` if you want a server-side check; not required if the Open orders row already has both fields.
+3. Build `cancel_order` with `lightpool-sdk` (`ActionBuilder::cancel_order`, `CancelOrderParams { order_id }`) on that `spot_market`.
+4. Prefer **session agent** signing: tx `sender` = agent, `account` = MetaMask user (same as place). Submit through the app backend cancel prepare/submit routes → clob-index `POST /api/tx/submit`.
+5. On success: refresh balances and order tabs (or rely on WS `user` order events to move the row from Open orders to Order history as `cancelled`). Show a clear error on failure (near the tab or the row).
+
+Do **not** add cancel on Order history or Trade history rows.
+
+## 3. Live Open orders / Order history / Trade history
+
+Connected user = MetaMask `Address`. Frontend talks to clob-index `:3002` (same pattern as the order book).
+
+### Snapshot
+
+`GET http://127.0.0.1:3002/api/orders?user_address=<Address>`
+
+**Equity / standalone spots:** Open orders come from this index, not from the order book UI. Tokenized equity spots (`AAPL/USDT`, …) are **not** event-contract yes/no markets. If clob-index only updates the book and logs `order_created for unknown spot market (book updated but order not indexed)`, `GET /api/orders` stays empty and Open orders will never fill. Indexer must register standalone spots into the same lookup used for order indexing (or equivalent) so placements appear under the trading account `Address` (the MetaMask user / tx `account`, not only the agent sender).
+
+Split rows by `status` (and `filled_raw` when useful):
+
+| Tab | Include |
+|-----|---------|
+| **Open orders** | `open`, `partial_filled` |
+| **Order history** | terminal / past orders: `filled`, `cancelled`, and any rejected/failed status the index returns — **not** live open rows |
+| **Trade history** | one row per **fill / execution**, not per order |
+
+There is no separate fills list HTTP in the frozen skill. Build Trade history from:
+
+- WS `user` channel **trade / fill** messages, and/or
+- deriving fill rows when an order event reports a fill (accumulate in memory for the session; optional persist in `sessionStorage` if you need reload within the tab).
+
+Map `spot_market` → symbol via the app registry / markets list (show `AAPL`, not only `0x03…`).
+
+### Live updates
+
+Subscribe on clob-index WS:
+
+```text
+ws://127.0.0.1:3002/api/ws
+{ "op": "subscribe", "channel": "user", "user_address": "<Address>" }
+```
+
+Apply order events to Open orders and Order history (insert/update/move when status changes). Apply fill/trade events to Trade history. Unsubscribe on disconnect / account change.
+
+Columns (keep 8a headers; fill with live values; Open orders adds Cancel):
+
+- Open orders: Market, Side, Price, Size, Status, **Cancel** (per-row button)  
+- Order history: Time, Market, Side, Price, Size, Status  
+- Trade history: Time, Market, Side, Price, Size, Fee (Fee may be `"—"` / `0` if the WS fill has no fee field)
+
+Display listed order/trade **prices** in human dollars the same way as the order book UI (clob-index book/list prices are **cents** → `/ 100`), so Open orders shows `333.88` not `33388`.
+
+Empty connected state: show an empty table, not fake rows. Hide zero balances still follows 8a.
+
+## Out of scope
+
+- Amend / replace order UI
+- Changing Deposit / Withdraw dialog behavior from 8a/7
+- Chart, order book panel, Admin, maker
+- Requiring any app other than `tokenized-stocks-app`
+
+## Verify
+
+Prerequisite: `./scripts/start-stocks-07.sh`; 8a UI present; demo user connected with LightPool USDT (and stock for sells). Maker book has size (chapter 6) so a buy can fill.
+
+1. Connect → **Enable trading** (signs agent if needed) → button becomes Buy/Sell.
+2. Limit submit with empty price shows **Enter a price** (mid still drives % size only).
+3. After backend rebuild, `POST /api/orders/prepare` (and cancel prepare) is not HTTP 404.
+4. Place a **Limit** buy on AAPL; it appears on the book **and** under **Open orders** for the connected user (or moves to history/fills if it matches immediately).
+5. Click **Cancel** on that Open orders row; the order leaves Open orders (or shows cancelled in Order history) and disappears from the book; balances unlock.
+6. Place or take a fill; **Trade history** gains a fill row; **Order history** shows completed/cancelled orders; Open orders only shows live ones.
+7. Balances update after place/fill/cancel. Zero-balance assets stay hidden.
+8. Buy % with empty price / Market uses book mid in **dollars** (cents `/ 100`); ~1000 USDT at 50% near `$334` ≈ 1.5 shares.
+9. Place a **Market** buy of ~1.5 AAPL with ~1000 USDT available: it must **not** fail with insufficient balance needing ~$1.5M; lock/spend stays near mid×size (hundreds of USDT). Spots must have `allow_market_orders` (script enables via `/admin/enable-market-orders` or `--allow-market-orders` on create).
+10. Deposit / Withdraw dialog from 8a still works.

@@ -15,3 +15,5 @@ Step numbers match `tokenized-stocks/tokenized-stocks-video-by-chapter.md` (step
 | [`tokenized-stocks-app-06a-equity-liquidity-maker.txt`](tokenized-stocks-app-06a-equity-liquidity-maker.txt) | 6a Liquidity | `equity-liquidity-maker` in lightpool-bot |
 | [`tokenized-stocks-app-06b-orderbook-ui.txt`](tokenized-stocks-app-06b-orderbook-ui.txt) | 6b Order book UI | clob-index snapshot + `orderbook_delta` |
 | [`tokenized-stocks-app-07-deposit-withdraw.txt`](tokenized-stocks-app-07-deposit-withdraw.txt) | 7 Deposit / withdraw | Connect creates an agent; ticket Deposit / Withdraw signs in MetaMask |
+| [`tokenized-stocks-app-08a-order-ticket-ui.txt`](tokenized-stocks-app-08a-order-ticket-ui.txt) | 8a Order ticket UI | Market/Limit layout, deposit dialog, Order/Trade history tabs; no place/cancel yet |
+| [`tokenized-stocks-app-08b-enable-trading.txt`](tokenized-stocks-app-08b-enable-trading.txt) | 8b Enable trading | Place Limit/Market; live Open orders / Order history / Trade history |
