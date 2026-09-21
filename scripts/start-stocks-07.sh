@@ -612,46 +612,43 @@ deposit_maker_token() {
   exit 1
 }
 
-backend_bin() {
-  if [[ -n "${BACKEND_BIN:-}" && -x "$BACKEND_BIN" ]]; then
+ensure_backend_bin() {
+  if [[ -n "${BACKEND_BIN:-}" ]]; then
+    if [[ ! -x "$BACKEND_BIN" ]]; then
+      echo "BACKEND_BIN not executable: $BACKEND_BIN" >&2
+      exit 1
+    fi
     printf '%s\n' "$BACKEND_BIN"
     return
   fi
-  if [[ -x "$APP_DIR/backend/target/release/tokenized-stocks-backend" ]]; then
-    printf '%s\n' "$APP_DIR/backend/target/release/tokenized-stocks-backend"
-    return
+  need_cmd cargo
+  local bin="$APP_DIR/backend/target/release/tokenized-stocks-backend"
+  echo "build backend (release)" >&2
+  (cd "$APP_DIR/backend" && cargo build --release) >&2
+  if [[ ! -x "$bin" ]]; then
+    echo "backend binary missing after build: $bin" >&2
+    exit 1
   fi
-  if [[ -x "$APP_DIR/backend/target/debug/tokenized-stocks-backend" ]]; then
-    printf '%s\n' "$APP_DIR/backend/target/debug/tokenized-stocks-backend"
-    return
-  fi
-  printf '%s\n' ""
+  printf '%s\n' "$bin"
 }
 
 start_backend() {
-  if is_running backend; then
-    echo "skip  backend (already running)"
-    return
-  fi
   if [[ ! -f "$APP_DIR/backend/.env" && -f "$APP_DIR/backend/.env.example" ]]; then
     cp "$APP_DIR/backend/.env.example" "$APP_DIR/backend/.env"
   fi
   local bin
-  bin="$(backend_bin)"
-  echo "start backend"
-  if [[ -n "$bin" ]]; then
-    (
-      cd "$APP_DIR/backend"
-      setsid "$bin" >"$LOG_DIR/backend.log" 2>&1 < /dev/null &
-      echo $! >"$PID_DIR/backend.pid"
-    )
-  else
-    (
-      cd "$APP_DIR/backend"
-      setsid cargo run >"$LOG_DIR/backend.log" 2>&1 < /dev/null &
-      echo $! >"$PID_DIR/backend.pid"
-    )
+  bin="$(ensure_backend_bin)"
+  if is_running backend; then
+    echo "restart backend (use latest binary)"
+    stop_pid backend
+    stop_port 3001 backend
   fi
+  echo "start backend"
+  (
+    cd "$APP_DIR/backend"
+    setsid "$bin" >"$LOG_DIR/backend.log" 2>&1 < /dev/null &
+    echo $! >"$PID_DIR/backend.pid"
+  )
 }
 
 start_frontend() {
@@ -767,23 +764,27 @@ for token in state.get("tokens") or []:
 PY
 }
 
-maker_bin() {
-  if [[ -n "${MAKER_BIN:-}" && -x "$MAKER_BIN" ]]; then
+ensure_maker_bin() {
+  if [[ -n "${MAKER_BIN:-}" ]]; then
+    if [[ ! -x "$MAKER_BIN" ]]; then
+      echo "MAKER_BIN not executable: $MAKER_BIN" >&2
+      exit 1
+    fi
     printf '%s\n' "$MAKER_BIN"
     return
   fi
-  if [[ -x "$BOT_DIR/target/release/equity-liquidity-maker" ]]; then
-    printf '%s\n' "$BOT_DIR/target/release/equity-liquidity-maker"
-    return
+  need_cmd cargo
+  local bin="$BOT_DIR/target/release/equity-liquidity-maker"
+  echo "build equity-liquidity-maker (release)" >&2
+  (cd "$BOT_DIR" && cargo build --release -p lightpool-strategies --bin equity-liquidity-maker) >&2
+  if [[ ! -x "$bin" ]]; then
+    echo "maker binary missing after build: $bin" >&2
+    exit 1
   fi
-  printf '%s\n' ""
+  printf '%s\n' "$bin"
 }
 
 start_maker() {
-  if is_running maker; then
-    echo "skip  maker (already running)"
-    return
-  fi
   if [[ ! -f "$WALLET_PATH" ]]; then
     echo "maker wallet missing: $WALLET_PATH" >&2
     exit 1
@@ -793,29 +794,21 @@ start_maker() {
     exit 1
   fi
   local bin key
-  bin="$(maker_bin)"
+  bin="$(ensure_maker_bin)"
   key="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["private_key"])' "$WALLET_PATH")"
-  echo "start equity-liquidity-maker"
-  if [[ -n "$bin" ]]; then
-    (
-      cd "$BOT_DIR"
-      TOKENIZED_STOCKS_REGISTRY="$REGISTRY" \
-      LIGHTPOOL_PRIVATE_KEY="$key" \
-      setsid "$bin" --symbol AAPL,TSLA,INTC \
-        >"$LOG_DIR/maker.log" 2>&1 < /dev/null &
-      echo $! >"$PID_DIR/maker.pid"
-    )
-  else
-    (
-      cd "$BOT_DIR"
-      TOKENIZED_STOCKS_REGISTRY="$REGISTRY" \
-      LIGHTPOOL_PRIVATE_KEY="$key" \
-      setsid cargo run -p lightpool-strategies --release --bin equity-liquidity-maker -- \
-        --symbol AAPL,TSLA,INTC \
-        >"$LOG_DIR/maker.log" 2>&1 < /dev/null &
-      echo $! >"$PID_DIR/maker.pid"
-    )
+  if is_running maker; then
+    echo "restart maker (use latest binary)"
+    stop_pid maker
   fi
+  echo "start equity-liquidity-maker"
+  (
+    cd "$BOT_DIR"
+    TOKENIZED_STOCKS_REGISTRY="$REGISTRY" \
+    LIGHTPOOL_PRIVATE_KEY="$key" \
+    setsid "$bin" --symbol AAPL,TSLA,INTC --depth 20 \
+      >"$LOG_DIR/maker.log" 2>&1 < /dev/null &
+    echo $! >"$PID_DIR/maker.pid"
+  )
 }
 
 stop_maker() {

@@ -44,7 +44,7 @@ Selected market.spot_market (ContractAddress 0x03…)
 
 - `spot_market` comes from chapter 4 registry / selected market state.
 - Encode the address in the HTTP path (`encodeURIComponent`).
-- Depth: default `10` or `20` (index clamps 1…50).
+- Depth: fetch and subscribe at `20` per side (index cap is 20). The panel draws only the top `10`.
 
 Contrast with chart (chapter 5): chart uses Hyperliquid `xyz:SYMBOL` via backend; **order book uses LightPool clob-index only**.
 
@@ -60,6 +60,8 @@ Contrast with chart (chapter 5): chart uses Hyperliquid `xyz:SYMBOL` via backend
    - On delta: merge (`size` `"0"` removes level)
    - Optional: `requestAnimationFrame` throttle before setState
 3. UI: asks above, mid / last trade, bids below (price, size; optional total). Empty state when no market or empty book.
+   - Keep 20 levels per side in client state. Render only the best 10 bids and 10 asks. When a visible level is removed (`size` `"0"`), the next stored level must move into the table so one side does not fall to 9 while the other stays at 10.
+   - Trades list scrollbar: thin; track uses the page background (black); thumb uses the buy green. Do not leave the browser default white scrollbar.
 4. Env (frontend `.env.example`):
 
 ```text

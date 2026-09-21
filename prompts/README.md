@@ -4,10 +4,11 @@ Copy-paste prompts for AI agents building on LightPool.
 
 Read [`../AGENTS.md`](../AGENTS.md) first.
 
-Step numbers match `tokenized-stocks/tokenized-stocks-video-by-chapter.md` (step 1 = run local — no prompt file yet).
+Step numbers match `tokenized-stocks/tokenized-stocks-video-by-chapter.md`.
 
 | File | Step | Purpose |
 |------|------|---------|
+| [`tokenized-stocks-01-install-tools.txt`](tokenized-stocks-01-install-tools.txt) | 1 Run local | Install Rust, Node.js, Foundry, Python 3, git, and curl |
 | [`tokenized-stocks-app-02-scaffold.txt`](tokenized-stocks-app-02-scaffold.txt) | 2 Scaffold app | Create `tokenized-stocks-app` (frontend + thin backend) |
 | [`tokenized-stocks-app-03-rough-ui-shell.txt`](tokenized-stocks-app-03-rough-ui-shell.txt) | 3 Rough UI | Full trade layout placeholders (Hyperliquid-style shell) |
 | [`tokenized-stocks-app-04-admin.txt`](tokenized-stocks-app-04-admin.txt) | 4 Admin (+ markets) | USDT cash + stock token/market; markets list |

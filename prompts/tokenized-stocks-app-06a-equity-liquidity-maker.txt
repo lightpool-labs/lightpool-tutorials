@@ -70,7 +70,7 @@ Rules:
 - `--spot-market`: LightPool spot `ContractAddress` list aligned with `--symbol`, **or** resolve each symbol from `tokenized-stocks-app` registry / documented path so the user can pass symbols only.
 - Also pass whatever LightPool already needs for exec (private key via same env as `liquidity-maker`, clob-index HTTP/WS env). Prefer matching existing LightPool env vars from the Polymarket maker.
 - Useful flags (mirror existing maker where sensible):
-  - `--depth` (default 10)
+  - `--depth` (default 20): mirror 20 bids and 20 asks. The order book UI draws only the top 10.
   - `--reconcile-delta-batch-size` (default 1): reconcile on every Hyperliquid book delta. Do not wait for a batch of 10.
   - log interval optional
 
@@ -99,9 +99,9 @@ cargo run -p lightpool-strategies --release --bin equity-liquidity-maker -- \
 Wait until the bot has reconciled, then **validate books on clob-index** (replace addresses):
 
 ```bash
-curl -s "http://127.0.0.1:3002/api/spot/<AAPL_SPOT>/book?depth=10"
-curl -s "http://127.0.0.1:3002/api/spot/<TSLA_SPOT>/book?depth=10"
-curl -s "http://127.0.0.1:3002/api/spot/<INTC_SPOT>/book?depth=10"
+curl -s "http://127.0.0.1:3002/api/spot/<AAPL_SPOT>/book?depth=20"
+curl -s "http://127.0.0.1:3002/api/spot/<TSLA_SPOT>/book?depth=20"
+curl -s "http://127.0.0.1:3002/api/spot/<INTC_SPOT>/book?depth=20"
 ```
 
 Expect JSON with non-empty `bids` and/or `asks` for each. Put these sample commands in the strategy module docs or `lightpool-bot` README section for `equity-liquidity-maker`.
@@ -125,6 +125,9 @@ Use the same high-level pattern as `LiquidityMaker` + `sync.rs`:
 3. Buy locks quote (USDT); sell locks base (stock token) — respect LightPool spot rules.
 4. Do not mirror a Hyperliquid level whose size is below **0.1 share**. LightPool spot `min_order_size` is raw `100_000` (`TOKEN_SCALE` `1_000_000`). Drop those levels from the reference book. Do not place or modify a LightPool order under 0.1. If the only reason a resting LightPool order remains is that the HL size fell below 0.1, cancel it.
 5. Maker inventory: Admin/maker wallet should already hold USDT and base (fund in Admin if needed); document that in the binary `--help` / short module docs.
+6. Do not self-trade in one reconcile. `without_crossing_places` drops a new place that would hit a still-open opposite order, or that would cross another new place in the same batch. Cancels and modifies still go out. When a new bid and a new ask cross, keep the bid and defer the ask. Log `Defer … crossing place(s) so this batch cannot trade with itself`.
+7. On `OrderCanceled`, call `reconcile_after_own_cancel` and run the existing `reconcile_pair` against the Hyperliquid book already in cache. If any order for that instrument is still `PendingCancel` (`orders_inflight` is not empty), return. After the last cancel is confirmed and inflight is empty, place the levels deferred in rule 6. Do not wait for the next Hyperliquid book delta.
+8. Rest 20 levels per side (`--depth` default 20), not 10. Hyperliquid's 20 bids and 20 asks are placed on the LightPool spot. The UI still shows only the top 10.
 
 Wire LiveNode with:
 

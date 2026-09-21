@@ -1,0 +1,32 @@
+Install the local toolchain for the tokenized-stocks tutorial. Do not clone repositories and do not start any service.
+
+## Goal
+
+On this machine, install anything below that is missing. If a tool is already installed, skip it and check the version.
+
+1. Rust: rustup and cargo, stable channel.
+2. Node.js with npm. Prefer the current LTS.
+3. Foundry: `forge`, `cast`, and `anvil`.
+4. Python 3.
+5. git and curl.
+6. A C build toolchain for this OS (for example `build-essential` on Ubuntu) when `cargo` or `npm` would fail without it.
+
+## Done when
+
+Print the version of each tool and confirm the commands run:
+
+- `rustc --version`
+- `cargo --version`
+- `node --version`
+- `npm --version`
+- `forge --version`
+- `python3 --version`
+- `git --version`
+- `curl --version`
+
+## Out of scope
+
+- Cloning `lightpool-tutorials` or any other repository
+- `./scripts/bootstrap-stocks.sh`
+- `./scripts/start-stocks-07.sh`
+- Editing application source

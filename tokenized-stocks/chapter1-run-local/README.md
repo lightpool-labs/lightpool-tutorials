@@ -1,20 +1,47 @@
 # Tokenized stocks — Chapter 1: run local
 
-**Status:** scaffold only. Prompts and `run-local.sh` are not written yet.
+```bash
+mkdir -p lightpool-labs && cd lightpool-labs
+git clone git@github.com:lightpool-labs/lightpool-tutorials.git
+```
 
-**Goal (planned):** start a local LightPool node + clob-index, create USDT + AAPL tokens and an `AAPL/USDT` spot market, and verify the book over clob-index (`:3002`). No event-contract UI, bot, or bridge.
+## Step 1
 
-## Before you start
+Install the toolchain. Copy this to your AI:
 
-Agents: read [`../../AGENTS.md`](../../AGENTS.md), [`../../common/glossary.md`](../../common/glossary.md), [`../../common/architecture.md`](../../common/architecture.md), and [`../../skills/spot-lightpool/SKILL.md`](../../skills/spot-lightpool/SKILL.md).
+```text
+Please read lightpool-tutorials/prompts/tokenized-stocks-01-install-tools.txt. Install Rust, Node.js, Foundry, Python 3, git, and curl if they are missing. Skip tools that are already installed. Print each version when done. Do not clone repositories and do not start any service.
+```
 
-This track is **spot only** (base/quote CLOB). Do not bootstrap Polymarket / YES-NO event markets here.
+## Step 2
 
-## Planned steps (not implemented)
+Download the other repositories and build them. Repositories that are already cloned are skipped.
 
-1. Clone `lightpool-node` and `lightpool-clob-indexer`
-2. Install toolchain (Rust, etc.)
-3. Build `lightpool` + clob-index
-4. Start node + indexer; create tokens and spot market; verify with curl against `:3002`
+```bash
+cd lightpool-tutorials
+./scripts/bootstrap-stocks.sh
+```
 
-Until this chapter is filled in, use the architecture doc and the frozen skill API; do not invent a run script.
+The script clones these repositories under `lightpool-labs`: `lightpool-node`, `lightpool-crypto`, `lightpool-sdk-rust`, `lightpool-clob-indexer`, `lightpool-bridge`, `lightpool-bot`, and `tokenized-stocks-app`. It then downloads Reth and builds the node, indexer, bridge, maker, and app backend.
+
+## Step 3
+
+Start the local stack (Reth, LightPool, indexer, tokens and spot markets, bridge, maker, and the app).
+
+```bash
+./scripts/start-stocks-07.sh start
+```
+
+Open http://127.0.0.1:3000
+
+Stop:
+
+```bash
+./scripts/start-stocks-07.sh stop
+```
+
+Delete runtime data (stop first):
+
+```bash
+./scripts/start-stocks-07.sh clean
+```

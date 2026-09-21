@@ -5,6 +5,8 @@ Shared helpers for LightPool tutorials.
 | Script | Purpose |
 |--------|---------|
 | [`run-venue.sh`](run-venue.sh) | Start / stop local **lightpool** validator + **clob-indexer** only |
+| [`bootstrap-stocks.sh`](bootstrap-stocks.sh) | Clone tokenized-stocks sibling repos and build release binaries |
+| [`start-stocks-07.sh`](start-stocks-07.sh) | Start / stop the local stock stack (Reth, node, indexer, bridge, maker, app) |
 | [`fund-maker.sh`](fund-maker.sh) | Mint **USDT** + **AAPL/TSLA/INTC** to the maker wallet (Anvil #0) |
 
 ```bash
