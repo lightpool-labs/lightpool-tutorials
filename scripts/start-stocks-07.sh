@@ -403,9 +403,9 @@ init_lp_token() {
 create_spot() {
   local symbol="$1" base="$2" quote="$3" log spot
   log="$LOG_DIR/spot-$symbol.log"
-  echo "create spot market $symbol/USDT" >&2
+  echo "create spot market ${symbol}_USDT" >&2
   lp create-spot-market \
-    --name "$symbol/USDT" \
+    --name "${symbol}_USDT" \
     --base-token "$base" \
     --quote-token "$quote" \
     --allow-market-orders >"$log" 2>&1 || true
@@ -416,7 +416,7 @@ create_spot() {
     echo "failed to parse spot market for $symbol; see $log" >&2
     exit 1
   fi
-  echo "ok    $symbol/USDT $spot" >&2
+  echo "ok    ${symbol}_USDT $spot" >&2
   printf '%s\n' "$spot"
 }
 
@@ -453,7 +453,7 @@ for item in tokens:
         "id": item["market_id"],
         "symbol": item["symbol"],
         "name": item["name"],
-        "pair": f"{item['symbol']}/USDT",
+        "pair": f"{item['symbol']}_USDT",
         "base_token": item["lp"],
         "quote_token": lp_usdt,
         "spot_market": item["spot_market"],

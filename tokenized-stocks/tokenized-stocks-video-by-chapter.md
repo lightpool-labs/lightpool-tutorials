@@ -43,7 +43,7 @@ Off the main trade page (still in the app):
 
 | Step | Name | What you do | 做什么 |
 |------|------|-------------|--------|
-| 1 | Run local venue | Start LightPool node + clob-index. App will only talk to clob-index (`:3002`). | 启动 LightPool 节点 + clob-index。应用只对接 clob-index（`:3002`）。 |
+| 1 | Run local venue | Clone `lightpool-tutorials`, install the toolchain (prompt), run `bootstrap-stocks.sh`, then `start-stocks-07.sh start`. Open the app, deposit from Ethereum, buy stock, withdraw. | 克隆 `lightpool-tutorials`，用 prompt 安装开发环境，跑 `bootstrap-stocks.sh`，再 `start-stocks-07.sh start`。打开页面，从以太坊入金、买股票、出金。 |
 | 2 | Scaffold app | Create `tokenized-stocks-app` (frontend + thin backend). | 创建 `tokenized-stocks-app`（前端 + 薄后端）。 |
 | 3 | Rough UI for **all** parts | Build the full trade layout above with **placeholders only** (labels, empty tables, fake market name). No real API yet. Deposit / Withdraw is a placeholder under the order ticket; Admin is a separate empty page. User can click around the shell. | 按上方完整交易页布局搭好**占位壳**（标签、空表、假市场名）。先不接真实 API。Deposit / Withdraw 在下单区下方占位；Admin 为独立空页。用户可点击浏览整页壳。 |
 | 4 | Admin (+ markets list) | Create USDT + stock token, create spot market, fund accounts; wire markets list to load pairs and select spot `ContractAddress`. | 创建 USDT + 股票代币、创建现货市场、给账户打款；打通市场列表，加载交易对并选中现货 `ContractAddress`。 |

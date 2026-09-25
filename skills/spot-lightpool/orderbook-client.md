@@ -3,17 +3,19 @@
 Self-contained guide for apps that show a live spot order book.  
 **Talk to clob-index only** (`http://127.0.0.1:3002` / `ws://127.0.0.1:3002`). Do **not** go through the app backend for book data. Do **not** require any other sample app repo.
 
-Field shapes: [http.md](http.md) (`GET /api/spot/:spot_market/book`), [ws.md](ws.md) (`orderbook_delta`).
+Field shapes: [http.md](http.md) (`GET /api/markets/:name/book` or `GET /api/spot/:spot_market/book`), [ws.md](ws.md) (`orderbook_delta`).
 
-`spot_market` = LightPool spot **ContractAddress** (typically `0x03…`), URL-encoded in the path.
+`spot_market` = LightPool spot **ContractAddress** (typically `0x03…`), URL-encoded in the path. `:name` is the spot market name (e.g. `AAPL_USDT`).
 
 ---
 
 ## 1. HTTP snapshot (full book)
 
 ```http
-GET /api/spot/{spot_market}/book?depth=10
+GET /api/markets/{name}/book?depth=10
 ```
+
+(or `GET /api/spot/{spot_market}/book?depth=10`)
 
 Default depth 10, clamped 1…50.
 

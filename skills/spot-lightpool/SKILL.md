@@ -5,7 +5,7 @@ description: >-
   orderbook (matching and settlement on chain). Users deploy their own node +
   clob-index; it is not an online SaaS. Integrate an external app via
   clob-index HTTP/WS and lightpool-sdk signed submit. Use when an AI agent
-  wires an app for spot markets (e.g. AAPL/USDT): read books, subscribe to
+  wires an app for spot markets (e.g. AAPL_USDT): read books, subscribe to
   feeds, submit signed txs.
 ---
 
@@ -47,9 +47,10 @@ For a live order book UI, follow [orderbook-client.md](orderbook-client.md)
 App ──HTTP/WS──► clob-index (:3002) ──► lightpool node
 ```
 
-1. Discover markets / spot info → [http.md](http.md)  
-2. Stream books / quotes / user → [ws.md](ws.md)  
-3. Sign with SDK, submit → [tx-submit.md](tx-submit.md)
+1. Discover markets (`GET /api/markets/spot`) / spot info → [http.md](http.md)  
+2. Open orders / order history / trade history → [http.md](http.md) (Orders + `GET /api/markets/:name/trades`)  
+3. Stream books / quotes / user → [ws.md](ws.md)  
+4. Sign with SDK, submit → [tx-submit.md](tx-submit.md)
 
 ## Critical types
 
