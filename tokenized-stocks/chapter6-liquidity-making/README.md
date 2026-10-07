@@ -4,17 +4,17 @@ Step 6 has **two AI prompts**. Recommended order: **6a then 6b** (book has size 
 
 | Prompt | File | Repo | Purpose |
 |--------|------|------|---------|
-| **6a** | [`../../prompts/tokenized-stocks-app-06a-equity-liquidity-maker.txt`](../../prompts/tokenized-stocks-app-06a-equity-liquidity-maker.txt) | `lightpool-bot` | `equity-liquidity-maker` — HL `xyz:SYMBOL` → LightPool spot |
+| **6a** | [`../../prompts/tokenized-stocks-app-06a-equity-liquidity-maker.txt`](../../prompts/tokenized-stocks-app-06a-equity-liquidity-maker.txt) | `tokenized-stocks-app` | `liquidity-maker` — HL `xyz:SYMBOL` → LightPool spot |
 | **6b** | [`../../prompts/tokenized-stocks-app-06b-orderbook-ui.txt`](../../prompts/tokenized-stocks-app-06b-orderbook-ui.txt) | `tokenized-stocks-app` | Order book UI — clob-index snapshot + WS delta |
 
 Book UI client contract: [`../../skills/spot-lightpool/orderbook-client.md`](../../skills/spot-lightpool/orderbook-client.md).
 
 **Layout reference:** [`../tokenized-stocks-video-by-chapter.md`](../tokenized-stocks-video-by-chapter.md) (step 6).
 
-## Prompt 6a — Equity liquidity maker (copy to your AI)
+## Prompt 6a — Liquidity maker (copy to your AI)
 
 ```text
-Please read lightpool-tutorials/prompts/tokenized-stocks-app-06a-equity-liquidity-maker.txt. In lightpool-bot, add binary equity-liquidity-maker (new strategy; do not break Polymarket liquidity-maker). CLI --symbol takes a comma-separated list such as AAPL,TSLA,INTC; the bot must generate xyz:AAPL, xyz:TSLA, xyz:INTC internally (no HL mapping flag). Subscribe Hyperliquid L2 and mirror orders onto each LightPool spot market. Do not implement the Order book UI in this step.
+Please read lightpool-tutorials/prompts/tokenized-stocks-app-06a-equity-liquidity-maker.txt. In tokenized-stocks-app, add crate liquidity-maker (same layout as event-contract-app/liquidity-maker; path-depend on lightpool-bot Hyperliquid and LightPool adapters). Binary liquidity-maker; CLI --symbol takes a comma-separated list such as AAPL,TSLA,INTC; generate xyz:AAPL, xyz:TSLA, xyz:INTC internally (no HL mapping flag). Subscribe Hyperliquid L2 and mirror orders onto each LightPool spot market. Do not put the strategy in lightpool-bot. Do not implement the Order book UI in this step.
 ```
 
 ## Prompt 6b — Order book UI (copy to your AI)
@@ -34,11 +34,11 @@ Prerequisite: venue + indexer running; Admin has created `AAPL`, `TSLA`, and `IN
 ./scripts/fund-maker.sh
 ```
 
-**6a — run bot (after implement):**
+**6a — run maker (after implement):**
 
 ```bash
-cd lightpool-bot
-cargo run -p lightpool-strategies --release --bin equity-liquidity-maker -- \
+cd tokenized-stocks-app/liquidity-maker
+cargo run --release --bin liquidity-maker -- \
   --symbol AAPL,TSLA,INTC
 ```
 

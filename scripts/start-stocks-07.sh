@@ -5,7 +5,7 @@
 # 2. LightPool node + clob-indexer
 # 3. ERC20 tokens on Reth, LP tokens + spot markets on LightPool, bridge routes
 # 4. Fund maker and user on Reth, deposit for the maker
-# 5. equity-liquidity-maker
+# 5. liquidity-maker
 # 6. tokenized-stocks-app backend + frontend
 set -euo pipefail
 
@@ -52,7 +52,7 @@ REGISTRY="$DATA/registry.json"
 RETH_DATADIR="$DATA/reth"
 FORGE_DIR="$DATA/forge"
 APP_DIR="${APP_DIR:-$LABS/tokenized-stocks-app}"
-BOT_DIR="${BOT_DIR:-$LABS/lightpool-bot}"
+MAKER_DIR="${MAKER_DIR:-$APP_DIR/liquidity-maker}"
 CONTRACTS="$LABS/lightpool-bridge/contracts"
 RETH_BIN="${RETH_BIN:-$LABS/lightpool-node/tools/reth/bin/reth}"
 BRIDGE_BIN="${BRIDGE_BIN:-$LABS/lightpool-bridge/target/release/lightpool-bridge}"
@@ -774,9 +774,9 @@ ensure_maker_bin() {
     return
   fi
   need_cmd cargo
-  local bin="$BOT_DIR/target/release/equity-liquidity-maker"
-  echo "build equity-liquidity-maker (release)" >&2
-  (cd "$BOT_DIR" && cargo build --release -p lightpool-strategies --bin equity-liquidity-maker) >&2
+  local bin="$MAKER_DIR/target/release/liquidity-maker"
+  echo "build liquidity-maker (release)" >&2
+  (cd "$MAKER_DIR" && cargo build --release --bin liquidity-maker) >&2
   if [[ ! -x "$bin" ]]; then
     echo "maker binary missing after build: $bin" >&2
     exit 1
@@ -800,9 +800,9 @@ start_maker() {
     echo "restart maker (use latest binary)"
     stop_pid maker
   fi
-  echo "start equity-liquidity-maker"
+  echo "start liquidity-maker"
   (
-    cd "$BOT_DIR"
+    cd "$MAKER_DIR"
     TOKENIZED_STOCKS_REGISTRY="$REGISTRY" \
     LIGHTPOOL_PRIVATE_KEY="$key" \
     setsid "$bin" --symbol AAPL,TSLA,INTC --depth 20 \

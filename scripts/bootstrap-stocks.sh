@@ -72,8 +72,8 @@ echo "build lightpool-clob-indexer"
 echo "build lightpool-bridge"
 (cd "$LABS/lightpool-bridge" && cargo build --release --bin lightpool-bridge)
 
-echo "build equity-liquidity-maker"
-(cd "$LABS/lightpool-bot" && cargo build --release -p lightpool-strategies --bin equity-liquidity-maker)
+echo "build liquidity-maker"
+(cd "$LABS/tokenized-stocks-app/liquidity-maker" && cargo build --release --bin liquidity-maker)
 
 echo "build tokenized-stocks-app backend"
 (cd "$LABS/tokenized-stocks-app/backend" && cargo build --release)
@@ -98,6 +98,6 @@ echo "  reth          $LABS/lightpool-node/tools/reth/bin/reth"
 echo "  lightpool     $LABS/lightpool-node/bin/lightpool"
 echo "  indexer       $LABS/lightpool-clob-indexer/target/release/lightpool-clob-indexer"
 echo "  bridge        $LABS/lightpool-bridge/target/release/lightpool-bridge"
-echo "  maker         $LABS/lightpool-bot/target/release/equity-liquidity-maker"
+echo "  maker         $LABS/tokenized-stocks-app/liquidity-maker/target/release/liquidity-maker"
 echo "  backend       $LABS/tokenized-stocks-app/backend/target/release/tokenized-stocks-backend"
 echo "next: ./scripts/start-stocks-07.sh start"

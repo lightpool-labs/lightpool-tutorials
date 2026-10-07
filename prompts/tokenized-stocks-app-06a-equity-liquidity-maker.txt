@@ -1,4 +1,4 @@
-Implement **equity-liquidity-maker** in `lightpool-bot`: subscribe Hyperliquid equity L2 and mirror resting liquidity onto LightPool spot.
+Implement **liquidity-maker** in **`tokenized-stocks-app`**: subscribe Hyperliquid equity L2 and mirror resting liquidity onto LightPool spot.
 
 ## Context (read first)
 
@@ -11,13 +11,15 @@ If this chat has access to `lightpool-tutorials`, read in order:
 5. `tokenized-stocks/chapter4-admin/README.md` (test accounts; Anvil #0 = maker)
 6. `tokenized-stocks/chapter6-liquidity-making/README.md`
 
-Also open sibling repo **`lightpool-bot`** (user must clone it):
+Also open sibling repos:
 
-- Architecture template (Polymarket → LightPool; **do not modify its behavior**):
-  - `crates/strategies/src/bin/liquidity_maker.rs`
-  - `crates/strategies/src/liquidity_maker/` (`strategy.rs`, `sync.rs`, config)
-- Hyperliquid L2 / WS: `crates/adapters/hyperliquid/` (L2Book subscribe / deltas)
-- LightPool data + execution: existing `nautilus-lightpool` factories used by `liquidity-maker`
+- **`tokenized-stocks-app`** (this is where the maker crate lives):
+  - Target layout (same pattern as event-contract): `liquidity-maker/` crate with `src/liquidity_maker/` + `src/bin/liquidity_maker.rs`
+- **`event-contract-app/liquidity-maker/`** (reference for app-local crate + path deps; Polymarket maker — do not copy its venue logic):
+  - `Cargo.toml`, `src/lib.rs`, `src/bin/liquidity_maker.rs`
+- **`lightpool-bot`** (adapters only — **do not** put the strategy/binary back in the bot):
+  - Hyperliquid L2 / WS: `crates/adapters/hyperliquid/`
+  - LightPool data + execution: `crates/adapters/lightpool/` (`nautilus-lightpool` factories)
 
 Prerequisites:
 
@@ -32,31 +34,36 @@ Product: **US equities** only. No Polymarket. No crypto ticker examples in CLI h
 
 ## Goal
 
-In **`lightpool-bot`** (not `tokenized-stocks-app`):
+In **`tokenized-stocks-app`** (not `lightpool-bot`):
 
-1. Add a **new** strategy module and binary named **`equity-liquidity-maker`**.
-2. CLI takes LightPool equity **symbol(s) only** for the HL side, e.g. `--symbol AAPL,TSLA,INTC`. For each symbol `S`, the bot **internally** sets Hyperliquid coin = `"xyz:" + S` (e.g. `xyz:AAPL`, `xyz:TSLA`, `xyz:INTC`). **No** CLI flag for Hyperliquid coin / mapping.
-3. Subscribe to Hyperliquid order book (snapshot + deltas) for that coin.
-4. Reconcile and place/cancel orders on the matching LightPool **spot** market so clob-index shows bids/asks.
+1. Add crate **`liquidity-maker/`** (package name e.g. `tokenized-stocks-liquidity-maker`) with module **`liquidity_maker`** and binary **`liquidity-maker`**.
+2. Path-depend on `lightpool-bot` adapters (`nautilus-hyperliquid`, `nautilus-lightpool`, plus the Nautilus crates those need). Do **not** relocate adapters into the app.
+3. CLI takes LightPool equity **symbol(s) only** for the HL side, e.g. `--symbol AAPL,TSLA,INTC`. For each symbol `S`, the bot **internally** sets Hyperliquid coin = `"xyz:" + S` (e.g. `xyz:AAPL`, `xyz:TSLA`, `xyz:INTC`). **No** CLI flag for Hyperliquid coin / mapping.
+4. Subscribe to Hyperliquid order book (snapshot + deltas) for that coin.
+5. Reconcile and place/cancel orders on the matching LightPool **spot** market so clob-index shows bids/asks.
 
-Do **not** change the existing `liquidity-maker` Polymarket path except to leave it working.
+Update app scripts so the stack builds/runs this crate (`scripts/download-and-build.sh`, and any tutorial start script that launches the maker) from `$APP/liquidity-maker`, not `lightpool-bot`.
 
 ## Naming
 
 | Item | Name |
 |------|------|
-| Binary | `equity-liquidity-maker` |
-| Module | `equity_liquidity_maker` |
-| Strategy type | `EquityLiquidityMaker` |
+| Crate dir | `tokenized-stocks-app/liquidity-maker/` |
+| Package | `tokenized-stocks-liquidity-maker` |
+| Binary | `liquidity-maker` |
+| Module | `liquidity_maker` |
+| Strategy type | `LiquidityMaker` |
+| Config / pair | `LiquidityMakerConfig`, `MarketPair` |
 
-Register the `[[bin]]` in `crates/strategies/Cargo.toml` next to `liquidity-maker`. Add Hyperliquid adapter dependency to `lightpool-strategies` if missing (follow workspace crate names already used in the bot).
+Follow `event-contract-app/liquidity-maker` for crate layout and `target/` ignore. Do **not** keep a separate `equity-liquidity-maker` binary name.
 
 ## CLI (user-facing)
 
 Minimum:
 
 ```bash
-cargo run -p lightpool-strategies --bin equity-liquidity-maker -- \
+cd tokenized-stocks-app/liquidity-maker
+cargo run --release --bin liquidity-maker -- \
   --symbol AAPL,TSLA,INTC \
   --spot-market 0x03...,0x03...,0x03...
 ```
@@ -68,8 +75,8 @@ Rules:
 - `--symbol` (required): one or more equity tickers as on LightPool / Admin, **comma-separated**, e.g. `AAPL,TSLA,INTC`. Trim spaces; uppercase normalize if useful. Tutorial default set: **AAPL, TSLA, INTC**.
 - Hyperliquid coin per symbol: **code only** → `format!("xyz:{symbol}")`. Never expose `--hl-coin` / `--hyperliquid-symbol`.
 - `--spot-market`: LightPool spot `ContractAddress` list aligned with `--symbol`, **or** resolve each symbol from `tokenized-stocks-app` registry / documented path so the user can pass symbols only.
-- Also pass whatever LightPool already needs for exec (private key via same env as `liquidity-maker`, clob-index HTTP/WS env). Prefer matching existing LightPool env vars from the Polymarket maker.
-- Useful flags (mirror existing maker where sensible):
+- Also pass whatever LightPool already needs for exec (private key via same env as other makers, clob-index HTTP/WS env). Prefer matching existing LightPool env vars used by `event-contract-app` / `nautilus-lightpool`.
+- Useful flags (mirror event-contract maker where sensible):
   - `--depth` (default 20): mirror 20 bids and 20 asks. The order book UI draws only the top 10.
   - `--reconcile-delta-batch-size` (default 1): reconcile on every Hyperliquid book delta. Do not wait for a batch of 10.
   - log interval optional
@@ -80,11 +87,11 @@ Run one LiveNode that mirrors **all** listed symbols (subscribe each `xyz:S`, re
 
 ## Run after implement (document in binary help / README snippet)
 
-From `lightpool-bot` (venue already running; markets created in Admin; maker key in env):
+From `tokenized-stocks-app/liquidity-maker` (venue already running; markets created in Admin; maker key in env):
 
 ```bash
-cd lightpool-bot
-cargo run -p lightpool-strategies --release --bin equity-liquidity-maker -- \
+cd tokenized-stocks-app/liquidity-maker
+cargo run --release --bin liquidity-maker -- \
   --symbol AAPL,TSLA,INTC \
   --spot-market <AAPL_SPOT>,<TSLA_SPOT>,<INTC_SPOT>
 ```
@@ -92,7 +99,7 @@ cargo run -p lightpool-strategies --release --bin equity-liquidity-maker -- \
 Replace `<AAPL_SPOT>`, `<TSLA_SPOT>`, `<INTC_SPOT>` with the three LightPool spot `ContractAddress` values (same order as symbols). If the binary resolves spots from the app registry by symbol, this may be:
 
 ```bash
-cargo run -p lightpool-strategies --release --bin equity-liquidity-maker -- \
+cargo run --release --bin liquidity-maker -- \
   --symbol AAPL,TSLA,INTC
 ```
 
@@ -104,7 +111,7 @@ curl -s "http://127.0.0.1:3002/api/spot/<TSLA_SPOT>/book?depth=20"
 curl -s "http://127.0.0.1:3002/api/spot/<INTC_SPOT>/book?depth=20"
 ```
 
-Expect JSON with non-empty `bids` and/or `asks` for each. Put these sample commands in the strategy module docs or `lightpool-bot` README section for `equity-liquidity-maker`.
+Expect JSON with non-empty `bids` and/or `asks` for each. Put these sample commands in the strategy module docs or `tokenized-stocks-app` README section for `liquidity-maker`.
 
 ## Behavior
 
@@ -118,7 +125,7 @@ Expect JSON with non-empty `bids` and/or `asks` for each. Put these sample comma
          → place / cancel on LightPool via execution client → clob-index
 ```
 
-Use the same high-level pattern as `LiquidityMaker` + `sync.rs`:
+Use the same high-level pattern as a Nautilus strategy + `sync.rs`:
 
 1. Data actor / strategy receives HL book updates.
 2. Batch deltas, then reconcile target depth onto LightPool.
@@ -131,24 +138,25 @@ Use the same high-level pattern as `LiquidityMaker` + `sync.rs`:
 
 Wire LiveNode with:
 
-- Hyperliquid **data** client (for `xyz:SYMBOL`)
-- LightPool **data** + **execution** clients (clob-index), private key = Anvil #0 / env
+- Hyperliquid **data** client (for `xyz:SYMBOL`) via path-dep `nautilus-hyperliquid`
+- LightPool **data** + **execution** clients (clob-index) via path-dep `nautilus-lightpool`, private key = Anvil #0 / env
 
 ## Out of scope
 
 - Editing `tokenized-stocks-app` frontend / OrderBookPanel (6b)
 - Polymarket, `--bootstrap-markets`, YES/NO
 - Chart / candle code
-- event-contract-app
-- Renaming or breaking `liquidity-maker`
+- event-contract-app strategy logic (only use it as crate-layout reference)
+- Adding the strategy back under `lightpool-bot/crates/strategies`
 
 ## Verify
 
 1. Venue up; `AAPL/USDT`, `TSLA/USDT`, and `INTC/USDT` exist on LightPool.
 2. Run the sample command in **Run after implement** (with `--symbol AAPL,TSLA,INTC`, **without** `--no-trading`).
 3. For each spot address, the curl commands above return non-empty `bids` and/or `asks`.
-4. Existing `liquidity-maker` still builds.
+4. `cd tokenized-stocks-app/liquidity-maker && cargo build --release --bin liquidity-maker` succeeds.
 5. CLI help shows `--symbol` (comma-separated list), not a Hyperliquid mapping flag, and no `--no-trading`.
+6. App `.gitignore` ignores `target/` (including `liquidity-maker/target/`).
 
 ## Stop conditions
 
